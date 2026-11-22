@@ -99,6 +99,20 @@ summary span{color:#839bb4}
 .advanced-inner .btn{font-size:11px;padding:8px}
 .advanced-inner p{margin-top:11px}
 
+
+/* Optionaler Browser-KI-Test: kein Ersatz für die Live-Mikrofoneffekte */
+.ai-test{margin-top:15px;border:1px solid #655477;border-radius:10px;padding:0;background:linear-gradient(115deg,#241e34,#152838)}
+.ai-test summary{border:0;padding:12px 14px;color:#ecd8ff;font-size:12px}
+.ai-test summary span{color:#d8b98f;font-size:10px;font-weight:850}
+.ai-test-content{padding:0 14px 14px}
+.ai-test p{margin:0 0 12px;color:#aebdd3;font-size:11px}
+.ai-test label{display:block;margin:8px 0 5px}
+.ai-test textarea{width:100%;min-height:67px;resize:vertical;border:1px solid #475574;border-radius:7px;background:#0c1727;color:#edf2f8;padding:10px;font:12px/1.5 system-ui,-apple-system,Segoe UI,Arial,sans-serif}
+.ai-actions{display:flex;gap:7px;flex-wrap:wrap;margin-top:10px}
+.ai-actions button{flex:1;min-width:125px}
+.ai-state{margin-top:11px;color:#b6cce0;font-size:11px;white-space:pre-wrap;overflow-wrap:anywhere}
+.ai-state.error{color:#ffc0c0}
+.ai-disclaimer{font-size:10px!important;color:#8ea4bf!important;margin:9px 0 0!important}
 .voice-library-head{display:flex;justify-content:space-between;align-items:center;gap:8px;margin:0 0 9px}
 .voice-library-head h2{margin:0}
 .library-count{font-size:10px;color:#97abc2;font-weight:750}
@@ -131,6 +145,28 @@ summary span{color:#839bb4}
       <div id="voices" class="voices" aria-label="Stimmenauswahl"></div>
       <p id="voiceSelected" class="voice-selected"></p>
       <p class="voice-disclaimer">Weibliche und sinnliche Stimmen sind Klang-Effekte, keine KI-Stimmen oder Aufnahmen. Das Ergebnis hängt von deiner Ausgangsstimme ab.</p>
+
+      <details class="ai-test" id="aiTest">
+        <summary>KI-FRAUENSTIMME TESTEN <span>TEXT → SPRACHE ▾</span></summary>
+        <div class="ai-test-content">
+          <p>Experiment mit dem echten Kokoro-82M-KI-Modell. Gib einen englischen Satz ein, erzeuge eine Frauenstimme und spiele sie optional über VB-CABLE in Discord ab.</p>
+          <label for="aiVoice">KI-STIMME</label>
+          <select id="aiVoice">
+            <option value="af_heart">Heart · Frauenstimme (US)</option>
+            <option value="af_bella">Bella · Ausdrucksstark (US)</option>
+            <option value="af_nicole">Nicole · Sanft (US)</option>
+            <option value="bf_emma">Emma · Frauenstimme (UK)</option>
+          </select>
+          <label for="aiText">TEXT (ENGLISCH EMPFOHLEN)</label>
+          <textarea id="aiText" maxlength="350" spellcheck="false">Hello Dusk and Dawn. This is our first AI voice test.</textarea>
+          <div class="ai-actions">
+            <button id="aiGenerate" class="btn primary" type="button">KI-Stimme erzeugen</button>
+            <button id="aiPlay" class="btn" type="button" disabled>▶ Abspielen</button>
+          </div>
+          <div id="aiState" class="ai-state" role="status" aria-live="polite">Noch kein Modell geladen.</div>
+          <p class="ai-disclaimer">Beim ersten Mal wird ein größeres Modell heruntergeladen. Die Sprachberechnung erfolgt lokal im Browser. Keine Live-Mikrofonumwandlung. Für Discord CABLE Input als Audioausgabe einstellen.</p>
+        </div>
+      </details>
       <hr>
       <div class="field">
         <div class="row"><label for="pitch">PITCH · HALBTÖNE</label><output class="number" id="pitchValue">0</output></div>
@@ -193,6 +229,7 @@ summary span{color:#839bb4}
   <p class="foot">Dusk &amp; Dawn Voice Changer · experimentelle Echtzeit-Effekte · Chrome/Edge am Windows-PC empfohlen. Das System erstellt keinen virtuellen Mikrofontreiber und ersetzt keinen Discord-Bot.</p>
 </div>
 <audio id="out" autoplay playsinline style="display:none"></audio>
+<audio id="aiAudio" preload="none" style="display:none"></audio>
 <script>
 'use strict';
 const $ = id => document.getElementById(id);
@@ -564,6 +601,68 @@ async function chooseOutput(){
     }
   }catch(e){status('Ausgang nicht freigegeben: '+describeError(e),'error');}
 }
+
+
+/* KOKORO-82M: Modell wird nur auf Klick geladen. Reiner Text-zu-Sprache-Test. */
+let aiModel=null,aiLoading=null,aiUrl=null,aiBusy=false;
+function aiState(message,isError=false){
+  $('aiState').textContent=message;
+  $('aiState').className='ai-state'+(isError?' error':'');
+}
+async function aiLoad(){
+  if(aiModel)return aiModel;
+  if(aiLoading)return aiLoading;
+  aiLoading=(async()=>{
+    aiState('KI-Modell wird erstmals heruntergeladen und vorbereitet. Das kann einen größeren Download erfordern …');
+    const mod=await import('https://esm.sh/kokoro-js@1.2.1?bundle');
+    if(typeof mod.KokoroTTS?.from_pretrained!=='function')throw Error('Die KI-Bibliothek konnte nicht geladen werden.');
+    return mod.KokoroTTS.from_pretrained('onnx-community/Kokoro-82M-v1.0-ONNX',{
+      dtype:'q8',device:'wasm'
+    });
+  })();
+  try{aiModel=await aiLoading;return aiModel;}
+  finally{aiLoading=null;}
+}
+async function aiGenerate(){
+  if(aiBusy)return;
+  const text=$('aiText').value.trim();
+  if(!text){aiState('Bitte zuerst einen Text eingeben.',true);return;}
+  aiBusy=true;$('aiGenerate').disabled=true;$('aiPlay').disabled=true;
+  try{
+    const tts=await aiLoad();
+    aiState('Die KI erzeugt jetzt die Stimme …');
+    const audio=await tts.generate(text,{voice:$('aiVoice').value});
+    const wav=audio.toBlob();
+    if(!wav||!wav.size)throw Error('Es wurden keine Audiodaten erzeugt.');
+    if(aiUrl)URL.revokeObjectURL(aiUrl);
+    aiUrl=URL.createObjectURL(wav);
+    $('aiAudio').src=aiUrl;
+    $('aiPlay').disabled=false;
+    aiState('KI-Stimme fertig. Klicke auf „Abspielen“. Für Discord CABLE Input als Audioausgabe auswählen.');
+  }catch(e){
+    console.error('Kokoro TTS',e);
+    aiState('KI-Test fehlgeschlagen: '+(e&&e.message||String(e))+'\\nBitte Internetzugang, Chrome/Edge und freien Arbeitsspeicher prüfen.',true);
+  }finally{aiBusy=false;$('aiGenerate').disabled=false;}
+}
+async function aiPlay(){
+  if(!aiUrl)return;
+  const audio=$('aiAudio');
+  try{
+    const device=$('outputDevice').value;
+    if(device!=='__none__'){
+      if(typeof audio.setSinkId!=='function')throw Error('Der Browser kann den Audioausgang nicht wechseln. Bitte Chrome oder Edge verwenden.');
+      await audio.setSinkId(device);
+    }
+    audio.currentTime=0;
+    await audio.play();
+    const label=$('outputDevice').selectedOptions[0]?.textContent||'Standardausgabe';
+    aiState(device!=='__none__'&&isCable(label)?
+      'KI-Stimme wird über VB-CABLE wiedergegeben. Discord-Eingabegerät: CABLE Output.':
+      'KI-Stimme wird lokal wiedergegeben. Für Discord unter „Geräteauswahl & Hilfe“ CABLE Input auswählen.');
+  }catch(e){aiState('Abspielen fehlgeschlagen: '+(e&&e.message||String(e)),true);}
+}
+$('aiGenerate').addEventListener('click',aiGenerate);
+$('aiPlay').addEventListener('click',aiPlay);
 
 $('voiceTabs').addEventListener('click',ev=>{
   const tab=ev.target.closest('[data-group]');
