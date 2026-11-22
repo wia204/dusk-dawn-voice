@@ -613,8 +613,8 @@ async function aiLoad(){
   if(aiModel)return aiModel;
   if(aiLoading)return aiLoading;
   aiLoading=(async()=>{
-    aiState('KI-Modell wird erstmals heruntergeladen und vorbereitet. Das kann einen größeren Download erfordern …');
-    const mod=await import('https://esm.sh/kokoro-js@1.2.1?bundle');
+    aiState('KI-Modell (ca. 90 MB plus Laufzeitdateien) wird geladen und im Browser vorbereitet …');
+    const mod=await import('https://cdn.jsdelivr.net/npm/kokoro-js@1.2.1/dist/kokoro.web.js');
     if(typeof mod.KokoroTTS?.from_pretrained!=='function')throw Error('Die KI-Bibliothek konnte nicht geladen werden.');
     return mod.KokoroTTS.from_pretrained('onnx-community/Kokoro-82M-v1.0-ONNX',{
       dtype:'q8',device:'wasm'
@@ -641,7 +641,7 @@ async function aiGenerate(){
     aiState('KI-Stimme fertig. Klicke auf „Abspielen“. Für Discord CABLE Input als Audioausgabe auswählen.');
   }catch(e){
     console.error('Kokoro TTS',e);
-    aiState('KI-Test fehlgeschlagen: '+(e&&e.message||String(e))+'\\nBitte Internetzugang, Chrome/Edge und freien Arbeitsspeicher prüfen.',true);
+    aiState('KI-Test fehlgeschlagen: '+(e&&e.message||String(e))+'\nBitte Internetzugang, Chrome/Edge und freien Arbeitsspeicher prüfen.',true);
   }finally{aiBusy=false;$('aiGenerate').disabled=false;}
 }
 async function aiPlay(){
