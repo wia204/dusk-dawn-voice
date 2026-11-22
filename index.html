@@ -19,11 +19,11 @@ h1{font-size:30px;letter-spacing:-.05em;margin:8px 0 4px;line-height:1.15}
 .panel{background:#111d30e8;border:1px solid var(--edge);border-radius:13px;padding:18px;min-width:0}
 h2{font-size:14px;margin:0 0 14px;letter-spacing:.015em}
 .eyebrow{color:var(--muted);font-size:10px;font-weight:800;letter-spacing:.12em;margin:0 0 9px;text-transform:uppercase}
-.voices{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px}
-.voice{border:1px solid #384960;border-radius:9px;background:#15253a;color:#cfdbeb;text-align:left;padding:11px;min-height:70px;cursor:pointer;display:flex;flex-direction:column;justify-content:space-between;gap:3px}
+.voices{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;max-height:355px;overflow-y:auto;padding:2px;align-content:start;scrollbar-width:thin}
+.voice{border:1px solid #384960;border-radius:8px;background:#15253a;color:#cfdbeb;text-align:left;padding:9px 10px;min-height:62px;cursor:pointer;display:flex;flex-direction:column;justify-content:space-between;gap:3px;min-width:0}
 .voice:hover{border-color:#8c867b}
 .voice.active{background:#332d29;border-color:var(--gold);color:#ffecd0}
-.voice strong{font-size:12px}
+.voice strong{font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block;padding-right:5px}
 .voice span{font-size:10px;opacity:.75}
 .field{display:grid;gap:6px;margin-bottom:14px}
 label{font-size:10px;color:#a4b7cf;font-weight:800;letter-spacing:.07em}
@@ -99,6 +99,21 @@ summary span{color:#839bb4}
 .advanced-inner .btn{font-size:11px;padding:8px}
 .advanced-inner p{margin-top:11px}
 
+.voice-library-head{display:flex;justify-content:space-between;align-items:center;gap:8px;margin:0 0 9px}
+.voice-library-head h2{margin:0}
+.library-count{font-size:10px;color:#97abc2;font-weight:750}
+.voice-tabs{display:flex;gap:5px;overflow-x:auto;padding:0 0 8px;scrollbar-width:thin}
+.voice-tab{flex:none;border:1px solid #344b64;color:#b0c3d7;background:#15243a;padding:7px 10px;border-radius:7px;font-size:10px;font-weight:850;white-space:nowrap}
+.voice-tab.active{background:#463627;border-color:#c9a371;color:#ffe4b5}
+.voice-search{display:block;width:100%;margin:0 0 9px;background:#0b1727;color:#eff2f8;border:1px solid #344a65;border-radius:7px;padding:9px 11px;outline:none;font-size:11px}
+.voice-search:focus{border-color:var(--cyan)}
+.voice-line{display:flex;align-items:center;justify-content:space-between;gap:3px}
+.voice-favorite{padding:0 4px;background:none;border:0;color:#8295ae;font-size:17px;line-height:1.2}
+.voice-favorite.selected{color:#ebc17e}
+.voice-empty{grid-column:1/-1;padding:22px 9px;text-align:center;border:1px dashed #425773;border-radius:8px;color:var(--muted)}
+.voice-selected{font-size:11px;color:#b0c1d2;margin:9px 0 0}
+.voice-selected b{color:var(--gold)}
+.voice-disclaimer{font-size:10px;color:#90a4bd;line-height:1.55;margin:7px 0 0}
 @media(max-width:760px){.grid{grid-template-columns:1fr}.wrap{padding:16px 12px 36px}.header{align-items:flex-start;flex-direction:column}.voices{grid-template-columns:repeat(2,minmax(0,1fr))}}
 </style>
 </head>
@@ -110,16 +125,12 @@ summary span{color:#839bb4}
   </header>
   <div class="grid">
     <section class="panel">
-      <h2>01 · Stimme wählen</h2>
-      <div class="voices" id="voices">
-        <button type="button" class="voice active" data-voice="normal"><strong>Normal</strong><span>Originalstimme</span></button>
-        <button type="button" class="voice" data-voice="deep"><strong>Tief</strong><span>Pitch −4</span></button>
-        <button type="button" class="voice" data-voice="high"><strong>Hoch</strong><span>Pitch +4</span></button>
-        <button type="button" class="voice" data-voice="robot"><strong>Roboter</strong><span>Metallischer Klang</span></button>
-        <button type="button" class="voice" data-voice="demon"><strong>Dämon</strong><span>Dunkel &amp; verzerrt</span></button>
-        <button type="button" class="voice" data-voice="radio"><strong>Funkgerät</strong><span>Schmalband-Filter</span></button>
-        <button type="button" class="voice" data-voice="alien"><strong>Alien</strong><span>Hoch &amp; moduliert</span></button>
-      </div>
+      <div class="voice-library-head"><h2>01 · Stimme wählen</h2><span id="libraryCount" class="library-count"></span></div>
+      <div id="voiceTabs" class="voice-tabs" role="tablist" aria-label="Stimmenkategorien"></div>
+      <input type="search" id="voiceSearch" class="voice-search" autocomplete="off" placeholder="Stimme suchen …" aria-label="Stimmen durchsuchen">
+      <div id="voices" class="voices" aria-label="Stimmenauswahl"></div>
+      <p id="voiceSelected" class="voice-selected"></p>
+      <p class="voice-disclaimer">Weibliche und sinnliche Stimmen sind Klang-Effekte, keine KI-Stimmen oder Aufnahmen. Das Ergebnis hängt von deiner Ausgangsstimme ab.</p>
       <hr>
       <div class="field">
         <div class="row"><label for="pitch">PITCH · HALBTÖNE</label><output class="number" id="pitchValue">0</output></div>
@@ -185,15 +196,74 @@ summary span{color:#839bb4}
 <script>
 'use strict';
 const $ = id => document.getElementById(id);
-const PRESETS = {
-  normal:{pitch:0,hp:75,lp:14500,drive:0,ringHz:0,ringDepth:0},
-  deep:{pitch:-4,hp:65,lp:5700,drive:0.1,ringHz:0,ringDepth:0},
-  high:{pitch:4,hp:145,lp:10500,drive:0,ringHz:0,ringDepth:0},
-  robot:{pitch:-1,hp:190,lp:4600,drive:0.22,ringHz:75,ringDepth:0.85},
-  demon:{pitch:-7,hp:65,lp:3400,drive:0.65,ringHz:38,ringDepth:0.18},
-  radio:{pitch:0,hp:400,lp:2900,drive:0.36,ringHz:0,ringDepth:0},
-  alien:{pitch:6,hp:185,lp:7800,drive:0.12,ringHz:31,ringDepth:0.45}
-};
+const GROUPS=[['all','Alle'],['female','Weiblich & sinnlich'],['male','Männlich'],['fantasy','Fantasy'],['scifi','Sci-Fi'],['fun','Fun'],['clean','Natürlich'],['fav','★ Favoriten']];
+function P(id,group,name,desc,fx={}){
+  return {id,group,name,desc,pitch:0,hp:75,lp:14500,drive:0,ringHz:0,ringDepth:0,bass:0,presence:0,echo:0,chorus:0,reverb:0,trem:0,tremRate:6,...fx};
+}
+const VOICES=[
+P('normal','clean','Normal','Originalstimme'),
+P('studio','clean','Studio','Präsent und sauber',{hp:100,lp:14000,bass:2,presence:2}),
+P('warm','clean','Warm','Weiche Klangfarbe',{hp:80,lp:9000,bass:5,presence:-1}),
+P('clear','clean','Kristallklar','Helle Präsenz',{hp:135,lp:16000,bass:-2,presence:5}),
+P('podcast','clean','Podcast','Runder Sprecherklang',{hp:95,lp:10400,bass:3,presence:2}),
+P('female_soft','female','Frau · Sanft','Hell und weich',{pitch:3,hp:150,lp:12400,bass:-3,presence:3}),
+P('female_light','female','Frau · Hell','Leicht und freundlich',{pitch:5,hp:210,lp:14000,bass:-5,presence:4}),
+P('female_deep','female','Frau · Tief','Warm und rauchig',{pitch:2,hp:110,lp:9300,bass:2,presence:-1,reverb:.05}),
+P('female_sexy','female','Sexy · Soft','Sanft und sinnlich',{pitch:3,hp:120,lp:10400,presence:1,reverb:.11,chorus:.08}),
+P('female_smoky','female','Sexy · Smoky','Tief und samtig',{pitch:1,hp:95,lp:7200,bass:4,presence:-2,reverb:.13}),
+P('female_flirt','female','Sexy · Flirty','Verspielt und hell',{pitch:5,hp:190,lp:13300,bass:-4,presence:3,chorus:.12}),
+P('female_breathy','female','Frau · Hauchzart','Luftig und sanft',{pitch:4,hp:190,lp:11000,bass:-5,presence:6,reverb:.09}),
+P('female_diva','female','Frau · Diva','Glänzend und räumlich',{pitch:4,hp:155,lp:13000,bass:-2,presence:4,chorus:.21,reverb:.20}),
+P('female_anime','female','Anime · Girl','Hoher Cartoon-Klang',{pitch:8,hp:300,lp:14000,bass:-6,presence:5,chorus:.11}),
+P('female_siren','female','Sirene','Hell und hallend',{pitch:5,hp:155,lp:12600,presence:2,reverb:.33,echo:.12}),
+P('deep','male','Tief','Dunklere Stimme',{pitch:-4,hp:65,lp:5700,drive:.1,bass:3}),
+P('male_narrator','male','Erzähler','Kino-Sprecher',{pitch:-2,hp:75,lp:10500,bass:4,presence:2,reverb:.08}),
+P('male_titan','male','Titan','Riesig und bassig',{pitch:-8,hp:46,lp:4800,bass:8,reverb:.23,echo:.10}),
+P('male_boss','male','Endboss','Massiv und düster',{pitch:-6,hp:60,lp:4700,drive:.15,bass:7,reverb:.17}),
+P('male_rough','male','Rau','Kratzige Stimme',{pitch:-2,hp:100,lp:6100,drive:.30,bass:2}),
+P('male_radio','male','Radiosprecher','Dicht und markant',{pitch:-2,hp:140,lp:8500,bass:4,presence:4}),
+P('demon','fantasy','Dämon','Tief und verzerrt',{pitch:-7,hp:65,lp:3400,drive:.65,ringHz:38,ringDepth:.18,reverb:.13}),
+P('dragon','fantasy','Drache','Grollend und gewaltig',{pitch:-9,hp:44,lp:3300,drive:.42,bass:8,echo:.16,reverb:.26}),
+P('orc','fantasy','Ork','Brutal und rau',{pitch:-5,hp:85,lp:4200,drive:.50,bass:4}),
+P('goblin','fantasy','Goblin','Hoch und krächzend',{pitch:7,hp:260,lp:6200,drive:.27,presence:5}),
+P('ghost','fantasy','Geist','Unheimlich verhallt',{pitch:2,hp:280,lp:6800,reverb:.45,chorus:.31,echo:.13}),
+P('witch','fantasy','Hexe','Kreischend und mystisch',{pitch:6,hp:310,lp:7100,drive:.20,chorus:.16,reverb:.22}),
+P('elf','fantasy','Elfe','Leicht und ätherisch',{pitch:4,hp:180,lp:13200,bass:-3,presence:3,chorus:.30,reverb:.27}),
+P('angel','fantasy','Engel','Hell und räumlich',{pitch:5,hp:170,lp:15500,presence:3,reverb:.46,chorus:.27}),
+P('vampire','fantasy','Vampir','Verführerisch dunkel',{pitch:-3,hp:80,lp:6800,bass:4,reverb:.19,echo:.07}),
+P('robot','scifi','Roboter','Metallischer Klang',{pitch:-1,hp:190,lp:4600,drive:.22,ringHz:75,ringDepth:.85}),
+P('android','scifi','Android','Glatt und synthetisch',{pitch:1,hp:210,lp:8800,ringHz:55,ringDepth:.48,chorus:.13}),
+P('cyborg','scifi','Cyborg','Kalt und aggressiv',{pitch:-3,hp:220,lp:5200,drive:.38,ringHz:92,ringDepth:.68}),
+P('alien','scifi','Alien','Hoch und moduliert',{pitch:6,hp:185,lp:7800,drive:.12,ringHz:31,ringDepth:.45,chorus:.27}),
+P('space','scifi','Raumfunk','Funk aus dem All',{hp:420,lp:2900,drive:.22,ringHz:17,ringDepth:.20,echo:.18}),
+P('holo','scifi','Hologramm','Schwebend und digital',{pitch:3,hp:160,lp:9300,ringHz:24,ringDepth:.24,chorus:.38,reverb:.12}),
+P('glitch','scifi','Glitch','Zerhackter Klang',{hp:300,lp:5300,drive:.42,ringHz:135,ringDepth:.95,trem:.8,tremRate:17}),
+P('droid','scifi','Droide','Kurzwellen-Robotik',{pitch:4,hp:370,lp:5200,ringHz:145,ringDepth:.76,trem:.25,tremRate:12}),
+P('synth','scifi','Synth','Digitaler Chor',{hp:130,lp:9500,ringHz:38,ringDepth:.45,chorus:.47,reverb:.20}),
+P('high','fun','Helium','Sehr hohe Stimme',{pitch:9,hp:280,lp:15500,bass:-6,presence:4}),
+P('chipmunk','fun','Streifenhörnchen','Extrem comicartig',{pitch:9,hp:410,lp:13400,bass:-7,presence:5,drive:.08}),
+P('cartoon','fun','Cartoon','Hell und verrückt',{pitch:7,hp:240,lp:12400,drive:.08,chorus:.20}),
+P('radio','fun','Funkgerät','Walkie-Talkie',{hp:400,lp:2900,drive:.36}),
+P('megaphone','fun','Megafon','Durchsage-Effekt',{hp:460,lp:3900,drive:.48,presence:6}),
+P('underwater','fun','Unterwasser','Dumpf und wabrig',{pitch:-2,hp:75,lp:1350,chorus:.42,trem:.19,tremRate:3}),
+P('stadium','fun','Stadion','Großes Echo',{hp:120,lp:11600,echo:.42,reverb:.22}),
+P('cave','fun','Höhle','Dichter Nachhall',{pitch:-1,hp:65,lp:7800,echo:.28,reverb:.48}),
+P('eightbit','fun','8-Bit','Retro-Spielklang',{pitch:4,hp:340,lp:4500,drive:.60,ringHz:180,ringDepth:.74,trem:.30,tremRate:13})
+];
+const PRESETS=Object.fromEntries(VOICES.map(v=>[v.id,v]));
+const htmlSafe=x=>String(x).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+let activeGroup='all',voiceQuery='',favorites=new Set();
+function renderVoices(){
+  $('libraryCount').textContent=VOICES.length+' Effekte';
+  $('voiceTabs').innerHTML=GROUPS.map(([id,label])=>'<button type="button" role="tab" class="voice-tab '+(activeGroup===id?'active':'')+'" aria-selected="'+(activeGroup===id)+'" data-group="'+id+'">'+htmlSafe(label)+(id==='fav'?' · '+favorites.size:'')+'</button>').join('');
+  const q=voiceQuery.trim().toLocaleLowerCase('de');
+  const shown=VOICES.filter(v=>(activeGroup==='all'||(activeGroup==='fav'?favorites.has(v.id):activeGroup===v.group))&&(!q||(v.name+' '+v.desc).toLocaleLowerCase('de').includes(q)));
+  $('voices').innerHTML=shown.length?shown.map(v=>
+    '<div class="voice '+(voice===v.id?'active':'')+'" role="button" tabindex="0" aria-pressed="'+(voice===v.id)+'" data-voice="'+v.id+'">'+
+    '<div class="voice-line"><strong>'+htmlSafe(v.name)+'</strong><button type="button" class="voice-favorite '+(favorites.has(v.id)?'selected':'')+'" data-favorite="'+v.id+'" title="Favorit umschalten">'+(favorites.has(v.id)?'★':'☆')+'</button></div><span>'+htmlSafe(v.desc)+'</span></div>').join(''):
+    '<div class="voice-empty">Keine Stimmen für diesen Filter.</div>';
+  $('voiceSelected').innerHTML='Ausgewählt: <b>'+htmlSafe(PRESETS[voice]?.name||'Normal')+'</b>';
+}
 let voice='normal', stream=null, context=null, nodes=null, outputStream=null, meterFrame=0;
 let starting=false, deviceOutput='__none__';
 const PREF_KEY='dd_voice_prefs_v2';
@@ -202,7 +272,7 @@ try{prefs=JSON.parse(localStorage.getItem(PREF_KEY)||'{}')||{};}catch(_){prefs={
 function savePrefs(){
   try{localStorage.setItem(PREF_KEY,JSON.stringify({
     voice:voice,pitch:Number($('pitch').value),volume:Number($('volume').value),
-    inputDevice:$('inputDevice').value,discordReady:$('discordReady').checked
+    inputDevice:$('inputDevice').value,discordReady:$('discordReady').checked,group:activeGroup,favorites:[...favorites]
   }));}catch(_){}
 }
 function isCable(label){return /\bCABLE(?:[- ]?[A-Z])?\s+Input\b|VB-Audio Virtual Cable/i.test(label||'');}
@@ -216,6 +286,8 @@ function chip(text,kind=''){
 }
 function route(title,info){$('routeText').textContent=title;$('routeInfo').textContent=info;}
 function restorePrefs(){
+  if(Array.isArray(prefs.favorites))favorites=new Set(prefs.favorites.filter(id=>PRESETS[id]));
+  if(GROUPS.some(([id])=>id===prefs.group))activeGroup=prefs.group;
   if(PRESETS[prefs.voice])changeVoice(prefs.voice);
   if(Number.isFinite(prefs.pitch)&&prefs.pitch>=-9&&prefs.pitch<=9){
     $('pitch').value=String(prefs.pitch);
@@ -226,7 +298,7 @@ function restorePrefs(){
     $('volumeValue').textContent=prefs.volume+' %';
   }
   $('discordReady').checked=!!prefs.discordReady;
-  savePrefs();
+  renderVoices();savePrefs();
 }
 
 function status(text,kind=''){
@@ -315,25 +387,29 @@ function makeCurve(drive){
   return a;
 }
 function changeVoice(next){
+  if(!PRESETS[next])return;
   voice=next;
   const p=PRESETS[next];
-  document.querySelectorAll('[data-voice]').forEach(b=>b.classList.toggle('active',b.dataset.voice===next));
   $('pitch').value=String(p.pitch);
   $('pitchValue').textContent=(p.pitch>0?'+':'')+p.pitch;
-  applyPreset();
-  savePrefs();
+  renderVoices();applyPreset();savePrefs();
 }
 function applyPreset(){
   if(!nodes||!context)return;
-  const p=PRESETS[voice],pitch=Number($('pitch').value);
+  const p=PRESETS[voice],pitch=Number($('pitch').value),now=context.currentTime;
+  const set=(param,value)=>param.setTargetAtTime(value,now,0.025);
   if(nodes.pitch)nodes.pitch.port.postMessage({pitch:Math.pow(2,pitch/12)});
-  nodes.hp.frequency.setTargetAtTime(p.hp,context.currentTime,0.02);
-  nodes.lp.frequency.setTargetAtTime(p.lp,context.currentTime,0.02);
+  set(nodes.hp.frequency,p.hp);set(nodes.lp.frequency,p.lp);
+  set(nodes.bass.gain,p.bass);set(nodes.presence.gain,p.presence);
   nodes.shape.curve=makeCurve(p.drive);
-  nodes.ring.gain.setTargetAtTime(1-p.ringDepth,context.currentTime,0.03);
-  nodes.depth.gain.setTargetAtTime(p.ringDepth,context.currentTime,0.03);
-  nodes.osc.frequency.setTargetAtTime(Math.max(1,p.ringHz),context.currentTime,0.03);
-  nodes.master.gain.setTargetAtTime(Number($('volume').value)/100,context.currentTime,0.02);
+  set(nodes.ring.gain,1-p.ringDepth);set(nodes.depth.gain,p.ringDepth);
+  set(nodes.osc.frequency,Math.max(1,p.ringHz));
+  set(nodes.trem.gain,1-p.trem/2);set(nodes.tremDepth.gain,p.trem/2);
+  set(nodes.tremOsc.frequency,p.tremRate);
+  set(nodes.echoDelay.delayTime,p.echo>.3?.22:.14);
+  set(nodes.echoWet.gain,p.echo);set(nodes.echoFeedback.gain,p.echo>.01?.2:0);
+  set(nodes.chorusWet.gain,p.chorus);set(nodes.reverbWet.gain,p.reverb);
+  set(nodes.master.gain,Number($('volume').value)/100);
 }
 async function applyOutput(){
   deviceOutput=$('outputDevice').value;
@@ -405,12 +481,29 @@ async function start(){
     const inputMeter=context.createAnalyser();inputMeter.fftSize=1024;
     const hp=context.createBiquadFilter();hp.type='highpass';
     const lp=context.createBiquadFilter();lp.type='lowpass';
+    const bass=context.createBiquadFilter();bass.type='lowshelf';bass.frequency.value=260;
+    const presence=context.createBiquadFilter();presence.type='peaking';presence.frequency.value=3000;presence.Q.value=.85;
     const shape=context.createWaveShaper();shape.oversample='2x';
     const ring=context.createGain(),depth=context.createGain(),osc=context.createOscillator();
     osc.type='sine';osc.frequency.value=75;osc.connect(depth);depth.connect(ring.gain);osc.start();
     const compressor=context.createDynamicsCompressor();
     compressor.threshold.value=-11;compressor.knee.value=4;compressor.ratio.value=8;
     compressor.attack.value=0.004;compressor.release.value=0.10;
+    const trem=context.createGain(),tremDepth=context.createGain(),tremOsc=context.createOscillator();
+    tremOsc.type='sine';tremOsc.connect(tremDepth);tremDepth.connect(trem.gain);tremOsc.start();
+    const echoDelay=context.createDelay(1),echoWet=context.createGain(),echoFeedback=context.createGain();
+    const chorusDelay=context.createDelay(.1),chorusWet=context.createGain();
+    chorusDelay.delayTime.value=.020;
+    const chorusOsc=context.createOscillator(),chorusDepth=context.createGain();
+    chorusOsc.frequency.value=.65;chorusDepth.gain.value=.006;
+    chorusOsc.connect(chorusDepth);chorusDepth.connect(chorusDelay.delayTime);chorusOsc.start();
+    const reverb=context.createConvolver(),reverbWet=context.createGain();
+    const impulse=context.createBuffer(2,Math.round(context.sampleRate*1.05),context.sampleRate);
+    for(let ch=0;ch<2;ch++){
+      const samples=impulse.getChannelData(ch);
+      for(let i=0;i<samples.length;i++)samples[i]=(Math.random()*2-1)*Math.pow(1-i/samples.length,2.8);
+    }
+    reverb.buffer=impulse;
     const master=context.createGain(),destination=context.createMediaStreamDestination();
     src.connect(inputMeter);
     let pitch=null,processing=src;
@@ -423,9 +516,17 @@ async function start(){
         src.connect(pitch);processing=pitch;
       }
     }catch(err){console.warn('Pitch-Worklet nicht verfügbar:',err);}
-    processing.connect(hp);hp.connect(lp);lp.connect(shape);shape.connect(ring);
-    ring.connect(compressor);compressor.connect(master);master.connect(destination);
-    nodes={src,analyser:inputMeter,hp,lp,shape,ring,depth,osc,compressor,master,pitch,destination};
+    processing.connect(hp);hp.connect(lp);lp.connect(bass);bass.connect(presence);
+    presence.connect(shape);shape.connect(ring);ring.connect(trem);trem.connect(compressor);
+    compressor.connect(master);
+    compressor.connect(echoDelay);echoDelay.connect(echoWet);echoWet.connect(master);
+    echoDelay.connect(echoFeedback);echoFeedback.connect(echoDelay);
+    compressor.connect(chorusDelay);chorusDelay.connect(chorusWet);chorusWet.connect(master);
+    compressor.connect(reverb);reverb.connect(reverbWet);reverbWet.connect(master);
+    master.connect(destination);
+    nodes={src,analyser:inputMeter,hp,lp,bass,presence,shape,ring,depth,osc,trem,tremDepth,tremOsc,
+      echoDelay,echoWet,echoFeedback,chorusDelay,chorusWet,chorusOsc,chorusDepth,reverb,reverbWet,
+      compressor,master,pitch,destination};
     outputStream=destination.stream;
     $('out').srcObject=outputStream;
     $('stop').disabled=false;
@@ -441,7 +542,7 @@ async function start(){
 async function stop(showMessage=true){
   $('out').pause();$('out').srcObject=null;
   if(stream){stream.getTracks().forEach(t=>t.stop());stream=null;}
-  if(nodes){try{nodes.osc.stop();}catch(_){}nodes=null;}
+  if(nodes){for(const osc of [nodes.osc,nodes.tremOsc,nodes.chorusOsc]){try{osc.stop();}catch(_){}}nodes=null;}
   if(context){try{await context.close();}catch(_){}context=null;}
   outputStream=null;
   cancelAnimationFrame(meterFrame);$('level').style.width='0%';
@@ -464,7 +565,27 @@ async function chooseOutput(){
   }catch(e){status('Ausgang nicht freigegeben: '+describeError(e),'error');}
 }
 
-document.querySelectorAll('[data-voice]').forEach(b=>b.addEventListener('click',()=>changeVoice(b.dataset.voice)));
+$('voiceTabs').addEventListener('click',ev=>{
+  const tab=ev.target.closest('[data-group]');
+  if(tab){activeGroup=tab.dataset.group;renderVoices();savePrefs();}
+});
+$('voiceSearch').addEventListener('input',ev=>{voiceQuery=ev.target.value;renderVoices();});
+$('voices').addEventListener('click',ev=>{
+  const star=ev.target.closest('[data-favorite]');
+  if(star){
+    const id=star.dataset.favorite;
+    if(favorites.has(id))favorites.delete(id);else favorites.add(id);
+    renderVoices();savePrefs();return;
+  }
+  const card=ev.target.closest('[data-voice]');
+  if(card)changeVoice(card.dataset.voice);
+});
+$('voices').addEventListener('keydown',ev=>{
+  const card=ev.target.closest('[data-voice]');
+  if(card&&ev.target===card&&(ev.key==='Enter'||ev.key===' ')){
+    ev.preventDefault();changeVoice(card.dataset.voice);
+  }
+});
 $('pitch').addEventListener('input',()=>{$('pitchValue').textContent=(Number($('pitch').value)>0?'+':'')+$('pitch').value;applyPreset();savePrefs();});
 $('volume').addEventListener('input',()=>{$('volumeValue').textContent=$('volume').value+' %';applyPreset();savePrefs();});
 $('discordReady').addEventListener('change',savePrefs);
