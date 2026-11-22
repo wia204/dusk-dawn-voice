@@ -1,0 +1,341 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#090f1c">
+<title>Dusk &amp; Dawn — Voice Changer</title>
+<style>
+:root{color-scheme:dark;--bg:#090f1c;--panel:#111d30;--edge:#2e4058;--text:#f2f3f7;--muted:#91a3bb;--gold:#e8bc79;--cyan:#77d7d1}
+*{box-sizing:border-box}
+body{margin:0;background:radial-gradient(ellipse 780px 420px at 85% -100px,#42344855,transparent 73%),var(--bg);color:var(--text);font:14px/1.55 system-ui,-apple-system,Segoe UI,Arial,sans-serif}
+.wrap{max-width:950px;padding:26px 20px 50px;margin:0 auto}
+.header{display:flex;align-items:center;justify-content:space-between;gap:20px;border-bottom:1px solid var(--edge);padding-bottom:18px;margin-bottom:22px}
+.brand{letter-spacing:.15em;font-size:11px;font-weight:900;color:var(--gold)}
+h1{font-size:30px;letter-spacing:-.05em;margin:8px 0 4px;line-height:1.15}
+.sub{color:var(--muted);margin:0;font-size:12px}
+.chip{border:1px solid #4e624f;color:#acd8b3;border-radius:5px;padding:4px 8px;font-size:9px;font-weight:800;letter-spacing:.08em;white-space:nowrap}
+.grid{display:grid;grid-template-columns:1.1fr .9fr;gap:17px}
+.panel{background:#111d30e8;border:1px solid var(--edge);border-radius:13px;padding:18px;min-width:0}
+h2{font-size:14px;margin:0 0 14px;letter-spacing:.015em}
+.eyebrow{color:var(--muted);font-size:10px;font-weight:800;letter-spacing:.12em;margin:0 0 9px;text-transform:uppercase}
+.voices{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px}
+.voice{border:1px solid #384960;border-radius:9px;background:#15253a;color:#cfdbeb;text-align:left;padding:11px;min-height:70px;cursor:pointer;display:flex;flex-direction:column;justify-content:space-between;gap:3px}
+.voice:hover{border-color:#8c867b}
+.voice.active{background:#332d29;border-color:var(--gold);color:#ffecd0}
+.voice strong{font-size:12px}
+.voice span{font-size:10px;opacity:.75}
+.field{display:grid;gap:6px;margin-bottom:14px}
+label{font-size:10px;color:#a4b7cf;font-weight:800;letter-spacing:.07em}
+select,input[type=range]{width:100%}
+select{background:#0c1625;color:var(--text);border:1px solid #3a4b65;border-radius:7px;padding:10px 9px;min-height:40px}
+input[type=range]{accent-color:var(--gold)}
+button{font:inherit;cursor:pointer}
+button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}
+.row{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.number{font-variant-numeric:tabular-nums;color:var(--gold);font-size:11px}
+.btn{background:#20334a;color:#e7eff8;border:1px solid #48607c;border-radius:8px;padding:11px 14px;font-size:12px;font-weight:850}
+.btn:hover{filter:brightness(1.14)}
+.btn.primary{background:var(--gold);border-color:var(--gold);color:#271b17}
+.btn.danger{border-color:#a65c65;background:#4b2833;color:#ffe3e5}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.buttons{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0 14px}
+.buttons .btn{flex:1}
+.meter{height:7px;border-radius:30px;background:#243449;overflow:hidden;border:1px solid #425069;margin:10px 0 6px}
+.meter>div{width:0%;height:100%;background:linear-gradient(90deg,#5eaaa7,#e8bc79);transition:width .08s}
+.status{border:1px solid #394d65;border-radius:9px;background:#0d1b2c;padding:11px 13px;font-size:12px;color:#bfcede;white-space:pre-wrap;overflow-wrap:anywhere}
+.status.good{border-color:#34746f;color:#a2e6d7}
+.status.error{border-color:#864c53;color:#ffc2c2}
+.help{color:var(--muted);font-size:11px;line-height:1.65}
+.help strong{color:#e1e7f0}
+.steps{padding-left:20px;margin:8px 0 0}
+.steps li{margin-bottom:7px}
+.link{color:var(--cyan)}
+.foot{color:#7489a5;font-size:10px;margin-top:20px}
+hr{border:0;border-top:1px solid #2b3e55;margin:18px 0}
+@media(max-width:760px){.grid{grid-template-columns:1fr}.wrap{padding:16px 12px 36px}.header{align-items:flex-start;flex-direction:column}.voices{grid-template-columns:repeat(2,minmax(0,1fr))}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="header">
+    <div><div class="brand">DUSK &amp; DAWN · LUMIEL EU</div><h1>Voice Changer</h1><p class="sub">Live-Stimmenfilter für Discord · Verarbeitung direkt in deinem Browser</p></div>
+    <span class="chip">WEB · BETA</span>
+  </header>
+  <div class="grid">
+    <section class="panel">
+      <h2>01 · Stimme auswählen</h2>
+      <div class="voices" id="voices">
+        <button type="button" class="voice active" data-voice="normal"><strong>Normal</strong><span>Originalstimme</span></button>
+        <button type="button" class="voice" data-voice="deep"><strong>Tief</strong><span>Pitch −4</span></button>
+        <button type="button" class="voice" data-voice="high"><strong>Hoch</strong><span>Pitch +4</span></button>
+        <button type="button" class="voice" data-voice="robot"><strong>Roboter</strong><span>Metallischer Klang</span></button>
+        <button type="button" class="voice" data-voice="demon"><strong>Dämon</strong><span>Dunkel &amp; verzerrt</span></button>
+        <button type="button" class="voice" data-voice="radio"><strong>Funkgerät</strong><span>Schmalband-Filter</span></button>
+        <button type="button" class="voice" data-voice="alien"><strong>Alien</strong><span>Hoch &amp; moduliert</span></button>
+      </div>
+      <hr>
+      <div class="field">
+        <div class="row"><label for="pitch">PITCH · HALBTÖNE</label><output class="number" id="pitchValue">0</output></div>
+        <input id="pitch" type="range" min="-9" max="9" step="1" value="0">
+      </div>
+      <div class="field">
+        <div class="row"><label for="volume">AUSGANGSPEGEL</label><output class="number" id="volumeValue">80 %</output></div>
+        <input id="volume" type="range" min="0" max="120" step="5" value="80">
+      </div>
+      <div class="meter" aria-label="Mikrofonpegel"><div id="level"></div></div>
+      <p class="help" style="margin:4px 0 0">Mikrofonpegel · Kein Audio wird hochgeladen oder gespeichert.</p>
+    </section>
+    <section class="panel">
+      <h2>02 · Geräte &amp; Discord</h2>
+      <div class="field"><label for="inputDevice">MIKROFON</label><select id="inputDevice"><option value="">Standardmikrofon</option></select></div>
+      <div class="field"><label for="outputDevice">AUDIOAUSGABE</label><select id="outputDevice"><option value="__none__">Keine Ausgabe (sicherer Start)</option></select></div>
+      <div class="buttons"><button class="btn" type="button" id="chooseOutput">Ausgabegerät freigeben</button><button class="btn" type="button" id="refreshDevices">Geräte neu laden</button></div>
+      <div class="buttons"><button class="btn primary" type="button" id="start">Mikrofon starten</button><button class="btn danger" type="button" id="stop" disabled>Stoppen</button></div>
+      <div id="status" class="status" role="status" aria-live="polite">Bereit. Wähle zuerst den Audioausgang „CABLE Input“, falls VB-CABLE installiert ist.</div>
+      <hr>
+      <p class="eyebrow">Discord-Einrichtung</p>
+      <ol class="steps help">
+        <li>Für Windows einen virtuellen Audiotreiber wie <strong>VB-CABLE</strong> bereitstellen.</li>
+        <li>Hier als Audioausgabe <strong>CABLE Input</strong> auswählen.</li>
+        <li>In Discord unter <strong>Einstellungen → Sprache &amp; Video → Eingabegerät</strong> <strong>CABLE Output</strong> auswählen.</li>
+        <li>Auf <strong>Mikrofon starten</strong> klicken und im Discord-Mikrofontest prüfen.</li>
+      </ol>
+      <p class="help">Verwende Kopfhörer, wenn du zum Testen Lautsprecher statt VB-CABLE auswählst. Lass diesen Tab während Discord geöffnet.</p>
+    </section>
+  </div>
+  <p class="foot">Dusk &amp; Dawn Voice Changer · experimentelle Echtzeit-Effekte · Chrome/Edge am Windows-PC empfohlen. Das System erstellt keinen virtuellen Mikrofontreiber und ersetzt keinen Discord-Bot.</p>
+</div>
+<audio id="out" autoplay playsinline style="display:none"></audio>
+<script>
+'use strict';
+const $ = id => document.getElementById(id);
+const PRESETS = {
+  normal:{pitch:0,hp:75,lp:14500,drive:0,ringHz:0,ringDepth:0},
+  deep:{pitch:-4,hp:65,lp:5700,drive:0.1,ringHz:0,ringDepth:0},
+  high:{pitch:4,hp:145,lp:10500,drive:0,ringHz:0,ringDepth:0},
+  robot:{pitch:-1,hp:190,lp:4600,drive:0.22,ringHz:75,ringDepth:0.85},
+  demon:{pitch:-7,hp:65,lp:3400,drive:0.65,ringHz:38,ringDepth:0.18},
+  radio:{pitch:0,hp:400,lp:2900,drive:0.36,ringHz:0,ringDepth:0},
+  alien:{pitch:6,hp:185,lp:7800,drive:0.12,ringHz:31,ringDepth:0.45}
+};
+let voice='normal', stream=null, context=null, nodes=null, outputStream=null, meterFrame=0;
+let starting=false, deviceOutput='__none__';
+
+function status(text,kind=''){
+  $('status').textContent=text;
+  $('status').className='status'+(kind?' '+kind:'');
+}
+function describeError(e){
+  const n=e&&e.name||'';
+  if(n==='NotAllowedError'||n==='PermissionDeniedError')return 'Mikrofonzugriff abgelehnt oder durch den Seitenrahmen blockiert. Öffne diese HTTPS-Seite als eigenen Browser-Tab und erlaube das Mikrofon.';
+  if(n==='NotFoundError')return 'Kein geeignetes Mikrofon gefunden.';
+  if(n==='NotReadableError')return 'Mikrofon ist nicht verfügbar. Prüfe, ob ein anderes Programm es exklusiv verwendet.';
+  return e&&e.message||String(e);
+}
+
+/* Ein einfacher zweifach überblendeter Granular-Pitch-Shifter.
+   Keine KI-Stimme: deutliche Tonhöhenänderungen können Artefakte erzeugen. */
+const pitchWorkletSource = `
+class DDPitchShift extends AudioWorkletProcessor {
+  constructor(){
+    super();this.buffer=new Float32Array(65536);this.pos=0;this.phase=0;this.pitch=1;
+    this.port.onmessage=e=>{const v=Number(e.data&&e.data.pitch);if(Number.isFinite(v))this.pitch=Math.max(0.5,Math.min(1.8,v));};
+  }
+  sample(read){
+    const size=this.buffer.length;
+    read=((read%size)+size)%size;
+    const i=Math.floor(read),f=read-i;
+    return this.buffer[i]*(1-f)+this.buffer[(i+1)%size]*f;
+  }
+  process(inputs,outputs){
+    const input=inputs[0]&&inputs[0][0],output=outputs[0]&&outputs[0][0];
+    if(!output)return true;
+    const grain=4096,minDelay=1152,p=this.pitch;
+    for(let i=0;i<output.length;i++){
+      const x=input?input[i]||0:0;
+      this.buffer[this.pos]=x;
+      if(Math.abs(p-1)<0.003){output[i]=x;}
+      else {
+        const phase=this.phase,phase2=(phase+0.5)%1;
+        const spread=Math.abs(p-1)*grain;
+        const delay1=minDelay+(p>1?(1-phase):phase)*spread;
+        const delay2=minDelay+(p>1?(1-phase2):phase2)*spread;
+        const weight1=0.5-0.5*Math.cos(2*Math.PI*phase);
+        const weight2=0.5-0.5*Math.cos(2*Math.PI*phase2);
+        output[i]=this.sample(this.pos-delay1)*weight1+this.sample(this.pos-delay2)*weight2;
+      }
+      this.pos=(this.pos+1)%this.buffer.length;
+      this.phase+=1/grain;if(this.phase>=1)this.phase-=1;
+    }
+    return true;
+  }
+}
+registerProcessor('dd-pitch',DDPitchShift);`;
+
+async function enumerateDevices(){
+  if(!navigator.mediaDevices||!navigator.mediaDevices.enumerateDevices)return;
+  const all=await navigator.mediaDevices.enumerateDevices();
+  const input=$('inputDevice'),output=$('outputDevice');
+  const oldInput=input.value,oldOutput=output.value;
+  input.replaceChildren(new Option('Standardmikrofon',''));
+  output.replaceChildren(new Option('Keine Ausgabe (sicherer Start)','__none__'));
+  let m=0,s=0;
+  for(const d of all){
+    if(d.kind==='audioinput')input.add(new Option(d.label||'Mikrofon '+(++m),d.deviceId));
+    if(d.kind==='audiooutput')output.add(new Option(d.label||'Audioausgabe '+(++s),d.deviceId));
+  }
+  if([...input.options].some(o=>o.value===oldInput))input.value=oldInput;
+  if([...output.options].some(o=>o.value===oldOutput))output.value=oldOutput;
+  else if([...output.options].some(o=>o.value===deviceOutput))output.value=deviceOutput;
+  if(![...output.options].some(o=>o.value===deviceOutput))deviceOutput='__none__';
+}
+function makeCurve(drive){
+  const n=1024,k=Number(drive)*17,a=new Float32Array(n);
+  for(let i=0;i<n;i++){
+    const x=2*i/(n-1)-1;
+    a[i]=((1+k)*x)/(1+k*Math.abs(x));
+  }
+  return a;
+}
+function changeVoice(next){
+  voice=next;
+  const p=PRESETS[next];
+  document.querySelectorAll('[data-voice]').forEach(b=>b.classList.toggle('active',b.dataset.voice===next));
+  $('pitch').value=String(p.pitch);
+  $('pitchValue').textContent=(p.pitch>0?'+':'')+p.pitch;
+  applyPreset();
+}
+function applyPreset(){
+  if(!nodes||!context)return;
+  const p=PRESETS[voice],pitch=Number($('pitch').value);
+  if(nodes.pitch)nodes.pitch.port.postMessage({pitch:Math.pow(2,pitch/12)});
+  nodes.hp.frequency.setTargetAtTime(p.hp,context.currentTime,0.02);
+  nodes.lp.frequency.setTargetAtTime(p.lp,context.currentTime,0.02);
+  nodes.shape.curve=makeCurve(p.drive);
+  nodes.ring.gain.setTargetAtTime(1-p.ringDepth,context.currentTime,0.03);
+  nodes.depth.gain.setTargetAtTime(p.ringDepth,context.currentTime,0.03);
+  nodes.osc.frequency.setTargetAtTime(Math.max(1,p.ringHz),context.currentTime,0.03);
+  nodes.master.gain.setTargetAtTime(Number($('volume').value)/100,context.currentTime,0.02);
+}
+async function applyOutput(){
+  deviceOutput=$('outputDevice').value;
+  const audio=$('out');
+  if(!stream||!context)return;
+  if(deviceOutput==='__none__'){
+    audio.pause();
+    status('Mikrofon aktiv, aber die Audioausgabe ist aus. Wähle CABLE Input als Ausgang.');
+    return;
+  }
+  if(typeof audio.setSinkId!=='function'){
+    audio.pause();status('Dieser Browser kann den Audioausgang nicht auswählen (setSinkId fehlt). Verwende Chrome oder Edge unter Windows.','error');return;
+  }
+  try{
+    await audio.setSinkId(deviceOutput);
+    await audio.play();
+    const label=$('outputDevice').selectedOptions[0]?.textContent||'Audioausgabe';
+    status('LIVE — veränderte Stimme wird an „'+label+'“ ausgegeben.\nDiscord muss das zugehörige virtuelle Eingabegerät verwenden.','good');
+  }catch(e){audio.pause();status('Audioausgabe konnte nicht gestartet werden: '+describeError(e),'error');}
+}
+function measure(){
+  if(!nodes||!nodes.analyser){$('level').style.width='0%';return;}
+  const data=new Uint8Array(nodes.analyser.fftSize);
+  nodes.analyser.getByteTimeDomainData(data);
+  let sum=0;
+  for(const x of data){const v=(x-128)/128;sum+=v*v;}
+  const rms=Math.sqrt(sum/data.length),pct=Math.min(100,Math.round(rms*250));
+  $('level').style.width=pct+'%';
+  meterFrame=requestAnimationFrame(measure);
+}
+async function start(){
+  if(starting||stream)return;
+  starting=true;$('start').disabled=true;
+  try{
+    if(!window.isSecureContext||!navigator.mediaDevices?.getUserMedia){
+      throw Error('Mikrofon erfordert HTTPS und einen unterstützten Browser.');
+    }
+    if(window.self!==window.top){throw Error('Diese Seite muss als eigener Tab geöffnet sein. Mikrofonzugriff in eingebetteten Seiten kann blockiert werden.');}
+    const selected=$('inputDevice').value;
+    stream=await navigator.mediaDevices.getUserMedia({audio:{
+      deviceId:selected?{exact:selected}:undefined,
+      echoCancellation:false,noiseSuppression:false,autoGainControl:false,channelCount:1
+    },video:false});
+    await enumerateDevices();
+    context=new (window.AudioContext||window.webkitAudioContext)({latencyHint:'interactive'});
+    await context.resume();
+    const src=context.createMediaStreamSource(stream);
+    const inputMeter=context.createAnalyser();inputMeter.fftSize=1024;
+    const hp=context.createBiquadFilter();hp.type='highpass';
+    const lp=context.createBiquadFilter();lp.type='lowpass';
+    const shape=context.createWaveShaper();shape.oversample='2x';
+    const ring=context.createGain(),depth=context.createGain(),osc=context.createOscillator();
+    osc.type='sine';osc.frequency.value=75;osc.connect(depth);depth.connect(ring.gain);osc.start();
+    const compressor=context.createDynamicsCompressor();
+    compressor.threshold.value=-11;compressor.knee.value=4;compressor.ratio.value=8;
+    compressor.attack.value=0.004;compressor.release.value=0.10;
+    const master=context.createGain(),destination=context.createMediaStreamDestination();
+    src.connect(inputMeter);
+    let pitch=null,processing=src;
+    try{
+      if(context.audioWorklet){
+        const blob=new Blob([pitchWorkletSource],{type:'application/javascript'});
+        const blobUrl=URL.createObjectURL(blob);
+        try{await context.audioWorklet.addModule(blobUrl);}finally{URL.revokeObjectURL(blobUrl);}
+        pitch=new AudioWorkletNode(context,'dd-pitch',{numberOfInputs:1,numberOfOutputs:1,outputChannelCount:[1]});
+        src.connect(pitch);processing=pitch;
+      }
+    }catch(err){console.warn('Pitch-Worklet nicht verfügbar:',err);}
+    processing.connect(hp);hp.connect(lp);lp.connect(shape);shape.connect(ring);
+    ring.connect(compressor);compressor.connect(master);master.connect(destination);
+    nodes={src,analyser:inputMeter,hp,lp,shape,ring,depth,osc,compressor,master,pitch,destination};
+    outputStream=destination.stream;
+    $('out').srcObject=outputStream;
+    $('stop').disabled=false;
+    applyPreset();
+    cancelAnimationFrame(meterFrame);measure();
+    await applyOutput();
+    if(!pitch&&Number($('pitch').value)!==0){
+      status('Mikrofon aktiv. Tonhöhenänderung ist in diesem Browser nicht verfügbar; die übrigen Filter funktionieren.','error');
+    }
+  }catch(e){status('Start fehlgeschlagen: '+describeError(e),'error');await stop(false);}
+  finally{starting=false;$('start').disabled=!!stream;}
+}
+async function stop(showMessage=true){
+  $('out').pause();$('out').srcObject=null;
+  if(stream){stream.getTracks().forEach(t=>t.stop());stream=null;}
+  if(nodes){try{nodes.osc.stop();}catch(_){}nodes=null;}
+  if(context){try{await context.close();}catch(_){}context=null;}
+  outputStream=null;
+  cancelAnimationFrame(meterFrame);$('level').style.width='0%';
+  $('start').disabled=false;$('stop').disabled=true;
+  if(showMessage)status('Gestoppt. Mikrofon und Audioausgabe sind ausgeschaltet.');
+}
+async function chooseOutput(){
+  try{
+    if(!navigator.mediaDevices?.selectAudioOutput){status('Direkte Gerätefreigabe wird in diesem Browser nicht angeboten. Prüfe die Auswahlliste nach dem Mikrofonstart.');return;}
+    const selected=await navigator.mediaDevices.selectAudioOutput();
+    await enumerateDevices();
+    if(selected?.deviceId){
+      const sel=$('outputDevice');
+      if(![...sel.options].some(o=>o.value===selected.deviceId))sel.add(new Option(selected.label||'Freigegebener Ausgang',selected.deviceId));
+      sel.value=selected.deviceId;
+      await applyOutput();
+    }
+  }catch(e){status('Ausgang nicht freigegeben: '+describeError(e),'error');}
+}
+
+document.querySelectorAll('[data-voice]').forEach(b=>b.addEventListener('click',()=>changeVoice(b.dataset.voice)));
+$('pitch').addEventListener('input',()=>{$('pitchValue').textContent=(Number($('pitch').value)>0?'+':'')+$('pitch').value;applyPreset();});
+$('volume').addEventListener('input',()=>{$('volumeValue').textContent=$('volume').value+' %';applyPreset();});
+$('start').addEventListener('click',start);
+$('stop').addEventListener('click',()=>stop());
+$('outputDevice').addEventListener('change',applyOutput);
+$('chooseOutput').addEventListener('click',chooseOutput);
+$('refreshDevices').addEventListener('click',async()=>{try{await enumerateDevices();status('Geräteliste aktualisiert.');}catch(e){status(describeError(e),'error');}});
+$('inputDevice').addEventListener('change',async()=>{if(stream){await stop(false);await start();}});
+if(navigator.mediaDevices?.addEventListener)navigator.mediaDevices.addEventListener('devicechange',()=>enumerateDevices().catch(()=>{}));
+window.addEventListener('pagehide',()=>{if(stream)stream.getTracks().forEach(t=>t.stop());});
+enumerateDevices().catch(()=>{});
+</script>
+</body>
+</html>
