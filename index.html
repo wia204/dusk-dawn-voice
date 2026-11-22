@@ -70,6 +70,10 @@ hr{border:0;border-top:1px solid #2b3e55;margin:18px 0}
 .route-card strong{font-size:13px;line-height:1.4;color:#d4e6f6}
 .route-card span:last-child{font-size:11px;color:#93aec6}
 .discord-once{border:1px solid #385169;background:#13273a;border-radius:9px;padding:13px;margin-top:13px}
+.driver-download{margin-top:12px;border:1px solid #4f5c6f;border-radius:9px;background:#152337;padding:12px;display:grid;gap:7px}
+.driver-download .driver-label{font-size:10px;color:#c7d5e5;font-weight:850;letter-spacing:.08em}
+.driver-download .btn{text-align:center;text-decoration:none}
+.driver-download p{margin:0;font-size:10px;color:#a1b3ca}
 .discord-once strong{font-size:12px}
 .discord-once p{margin:4px 0 9px;color:#a7bad0;font-size:11px}
 .discord-once b{color:#f0cc8e}
@@ -137,6 +141,12 @@ summary span{color:#839bb4}
         <div><strong>Einmalig in Discord:</strong><p>Einstellungen → Sprache &amp; Video → Eingabegerät: <b>CABLE Output</b></p></div>
         <label class="check-row"><input id="discordReady" type="checkbox"> Habe ich in Discord eingestellt</label>
       </div>
+      <div class="driver-download">
+        <span class="driver-label">VB-CABLE · WINDOWS-TREIBER</span>
+        <a class="btn" href="https://download.vb-audio.com/Download_CABLE/VBCABLE_Driver_Pack45.zip" target="_blank" rel="noopener noreferrer">VB-CABLE direkt herunterladen ↓</a>
+        <p>Einmalig: ZIP entpacken · VBCABLE_Setup_x64.exe als Administrator starten · Windows neu starten.</p>
+        <p>Offizieller Download von <a class="link" href="https://vb-audio.com/Cable/" target="_blank" rel="noopener noreferrer">VB-Audio ↗</a>. Bereits installiert? Diesen Schritt überspringen.</p>
+      </div>
       <details id="advanced">
         <summary>Geräteauswahl &amp; Hilfe <span>▾</span></summary>
         <div class="advanced-inner">
@@ -144,7 +154,7 @@ summary span{color:#839bb4}
           <div class="field"><label for="outputDevice">AUDIOAUSGABE</label><select id="outputDevice"><option value="__none__">Keine Ausgabe</option></select></div>
           <div class="buttons"><button class="btn" type="button" id="chooseOutput">Ausgabegerät freigeben</button><button class="btn" type="button" id="refreshDevices">Geräte neu laden</button></div>
           <p class="help"><b>Für Discord:</b> Hier CABLE Input, in Discord CABLE Output. Andere Audioausgänge sind nur zum Mithören/Testen geeignet und leiten die Stimme nicht automatisch an Discord.</p>
-          <p class="help">VB-CABLE noch nicht installiert? <a class="link" href="https://vb-audio.com/Cable/" target="_blank" rel="noopener noreferrer">Offizielle Download-Seite öffnen ↗</a>. Nach der Installation Windows bei Bedarf neu starten.</p>
+          <p class="help">Noch kein VB-CABLE? Nutze oben den direkten Download des offiziellen Windows-Treibers. Nach der Installation Windows neu starten.</p>
           <p class="help">Wenn du nur deine eigene Stimme hörst, kontrolliere den Audioausgang und das Eingabegerät in Discord. Dieser Browser kann Discord-Einstellungen nicht selbst ändern.</p>
         </div>
       </details>
