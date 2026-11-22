@@ -605,6 +605,7 @@ async function start(){
   finally{starting=false;$('start').disabled=!!stream;}
 }
 async function stop(showMessage=true){
+  if(aiPlaybackFinish)aiPlaybackFinish();
   $('out').pause();$('out').srcObject=null;
   if(stream){stream.getTracks().forEach(t=>t.stop());stream=null;}
   if(nodes){for(const osc of [nodes.osc,nodes.tremOsc,nodes.chorusOsc]){try{osc.stop();}catch(_){}}nodes=null;}
@@ -1091,7 +1092,7 @@ $('inputDevice').addEventListener('change',async()=>{savePrefs();if(stream){awai
 if(navigator.mediaDevices?.addEventListener)navigator.mediaDevices.addEventListener('devicechange',async()=>{
   try{const wasNone=$('outputDevice').value==='__none__';await enumerateDevices();if(stream&&wasNone&&cableOption()){$('outputDevice').value=cableOption().value;await applyOutput();}}catch(_){}
 });
-window.addEventListener('pagehide',()=>{liveStop(false);if(stream)stream.getTracks().forEach(t=>t.stop());});
+window.addEventListener('pagehide',()=>{liveStop(false);if(aiPlaybackFinish)aiPlaybackFinish();if(aiBridge)aiCloseBridge().catch(()=>{});if(stream)stream.getTracks().forEach(t=>t.stop());});
 restorePrefs();
 enumerateDevices().catch(()=>{});
 </script>
