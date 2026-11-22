@@ -53,6 +53,37 @@ button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid 
 .link{color:var(--cyan)}
 .foot{color:#7489a5;font-size:10px;margin-top:20px}
 hr{border:0;border-top:1px solid #2b3e55;margin:18px 0}
+
+/* SCHNELLSTART v2 */
+[hidden]{display:none!important}
+.quick-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:9px}
+.quick-head h2{font-size:16px;margin:2px 0}
+.quick-head .eyebrow{margin:0}
+.quick-intro{margin:0 0 13px}
+.connection-chip{border:1px solid #58657a;border-radius:6px;padding:5px 9px;color:#a6b5c9;font-size:10px;font-weight:850;white-space:nowrap}
+.connection-chip.live{color:#aaf0d7;border-color:#3f8a72;background:#1c403a}
+.connection-chip.test{color:#f2d096;border-color:#927148;background:#3f3021}
+.primary-buttons{margin-top:14px}
+.primary-buttons .btn{padding:13px 12px}
+.route-card{border:1px solid #395168;border-radius:9px;background:#102538;padding:14px;display:grid;gap:5px;margin-bottom:12px}
+.route-card .eyebrow{margin:0}
+.route-card strong{font-size:13px;line-height:1.4;color:#d4e6f6}
+.route-card span:last-child{font-size:11px;color:#93aec6}
+.discord-once{border:1px solid #385169;background:#13273a;border-radius:9px;padding:13px;margin-top:13px}
+.discord-once strong{font-size:12px}
+.discord-once p{margin:4px 0 9px;color:#a7bad0;font-size:11px}
+.discord-once b{color:#f0cc8e}
+.check-row{display:flex;gap:8px;align-items:center;font-size:11px;color:#bed0e2;letter-spacing:0;font-weight:600;cursor:pointer}
+.check-row input{accent-color:#d4ab70}
+details{border-top:1px solid #304359;margin-top:16px;padding-top:13px}
+summary{list-style:none;cursor:pointer;font-size:11px;font-weight:800;color:#bdd0e3;display:flex;justify-content:space-between;align-items:center}
+summary::-webkit-details-marker{display:none}
+summary span{color:#839bb4}
+.advanced-inner{padding-top:15px}
+.advanced-inner .buttons{margin-top:0}
+.advanced-inner .btn{font-size:11px;padding:8px}
+.advanced-inner p{margin-top:11px}
+
 @media(max-width:760px){.grid{grid-template-columns:1fr}.wrap{padding:16px 12px 36px}.header{align-items:flex-start;flex-direction:column}.voices{grid-template-columns:repeat(2,minmax(0,1fr))}}
 </style>
 </head>
@@ -64,7 +95,7 @@ hr{border:0;border-top:1px solid #2b3e55;margin:18px 0}
   </header>
   <div class="grid">
     <section class="panel">
-      <h2>01 · Stimme auswählen</h2>
+      <h2>01 · Stimme wählen</h2>
       <div class="voices" id="voices">
         <button type="button" class="voice active" data-voice="normal"><strong>Normal</strong><span>Originalstimme</span></button>
         <button type="button" class="voice" data-voice="deep"><strong>Tief</strong><span>Pitch −4</span></button>
@@ -86,22 +117,37 @@ hr{border:0;border-top:1px solid #2b3e55;margin:18px 0}
       <div class="meter" aria-label="Mikrofonpegel"><div id="level"></div></div>
       <p class="help" style="margin:4px 0 0">Mikrofonpegel · Kein Audio wird hochgeladen oder gespeichert.</p>
     </section>
-    <section class="panel">
-      <h2>02 · Geräte &amp; Discord</h2>
-      <div class="field"><label for="inputDevice">MIKROFON</label><select id="inputDevice"><option value="">Standardmikrofon</option></select></div>
-      <div class="field"><label for="outputDevice">AUDIOAUSGABE</label><select id="outputDevice"><option value="__none__">Keine Ausgabe (sicherer Start)</option></select></div>
-      <div class="buttons"><button class="btn" type="button" id="chooseOutput">Ausgabegerät freigeben</button><button class="btn" type="button" id="refreshDevices">Geräte neu laden</button></div>
-      <div class="buttons"><button class="btn primary" type="button" id="start">Mikrofon starten</button><button class="btn danger" type="button" id="stop" disabled>Stoppen</button></div>
-      <div id="status" class="status" role="status" aria-live="polite">Bereit. Wähle zuerst den Audioausgang „CABLE Input“, falls VB-CABLE installiert ist.</div>
-      <hr>
-      <p class="eyebrow">Discord-Einrichtung</p>
-      <ol class="steps help">
-        <li>Für Windows einen virtuellen Audiotreiber wie <strong>VB-CABLE</strong> bereitstellen.</li>
-        <li>Hier als Audioausgabe <strong>CABLE Input</strong> auswählen.</li>
-        <li>In Discord unter <strong>Einstellungen → Sprache &amp; Video → Eingabegerät</strong> <strong>CABLE Output</strong> auswählen.</li>
-        <li>Auf <strong>Mikrofon starten</strong> klicken und im Discord-Mikrofontest prüfen.</li>
-      </ol>
-      <p class="help">Verwende Kopfhörer, wenn du zum Testen Lautsprecher statt VB-CABLE auswählst. Lass diesen Tab während Discord geöffnet.</p>
+    <section class="panel quick-panel">
+      <div class="quick-head">
+        <div><div class="eyebrow">SCHNELLSTART</div><h2>02 · Stimme aktivieren</h2></div>
+        <span id="connectionChip" class="connection-chip">AUS</span>
+      </div>
+      <p class="help quick-intro">Stimme links wählen, starten und direkt in Discord sprechen. Das virtuelle Audiokabel wird automatisch gesucht.</p>
+      <div class="buttons primary-buttons">
+        <button class="btn primary" type="button" id="start">▶ Stimme aktivieren</button>
+        <button class="btn danger" type="button" id="stop" disabled>Stoppen</button>
+      </div>
+      <div class="route-card" aria-live="polite">
+        <span class="eyebrow">AUDIOWEG</span>
+        <strong id="routeText">Mikrofon → Voice Changer → Discord</strong>
+        <span id="routeInfo">VB-CABLE wird beim Start erkannt.</span>
+      </div>
+      <div id="status" class="status" role="status" aria-live="polite">Bereit. Klicke auf „Stimme aktivieren“.</div>
+      <div class="discord-once">
+        <div><strong>Einmalig in Discord:</strong><p>Einstellungen → Sprache &amp; Video → Eingabegerät: <b>CABLE Output</b></p></div>
+        <label class="check-row"><input id="discordReady" type="checkbox"> Habe ich in Discord eingestellt</label>
+      </div>
+      <details id="advanced">
+        <summary>Geräteauswahl &amp; Hilfe <span>▾</span></summary>
+        <div class="advanced-inner">
+          <div class="field"><label for="inputDevice">MIKROFON</label><select id="inputDevice"><option value="">Standardmikrofon</option></select></div>
+          <div class="field"><label for="outputDevice">AUDIOAUSGABE</label><select id="outputDevice"><option value="__none__">Keine Ausgabe</option></select></div>
+          <div class="buttons"><button class="btn" type="button" id="chooseOutput">Ausgabegerät freigeben</button><button class="btn" type="button" id="refreshDevices">Geräte neu laden</button></div>
+          <p class="help"><b>Für Discord:</b> Hier CABLE Input, in Discord CABLE Output. Andere Audioausgänge sind nur zum Mithören/Testen geeignet und leiten die Stimme nicht automatisch an Discord.</p>
+          <p class="help">VB-CABLE noch nicht installiert? <a class="link" href="https://vb-audio.com/Cable/" target="_blank" rel="noopener noreferrer">Offizielle Download-Seite öffnen ↗</a>. Nach der Installation Windows bei Bedarf neu starten.</p>
+          <p class="help">Wenn du nur deine eigene Stimme hörst, kontrolliere den Audioausgang und das Eingabegerät in Discord. Dieser Browser kann Discord-Einstellungen nicht selbst ändern.</p>
+        </div>
+      </details>
     </section>
   </div>
   <p class="foot">Dusk &amp; Dawn Voice Changer · experimentelle Echtzeit-Effekte · Chrome/Edge am Windows-PC empfohlen. Das System erstellt keinen virtuellen Mikrofontreiber und ersetzt keinen Discord-Bot.</p>
@@ -121,6 +167,38 @@ const PRESETS = {
 };
 let voice='normal', stream=null, context=null, nodes=null, outputStream=null, meterFrame=0;
 let starting=false, deviceOutput='__none__';
+const PREF_KEY='dd_voice_prefs_v2';
+let prefs={};
+try{prefs=JSON.parse(localStorage.getItem(PREF_KEY)||'{}')||{};}catch(_){prefs={};}
+function savePrefs(){
+  try{localStorage.setItem(PREF_KEY,JSON.stringify({
+    voice:voice,pitch:Number($('pitch').value),volume:Number($('volume').value),
+    inputDevice:$('inputDevice').value,discordReady:$('discordReady').checked
+  }));}catch(_){}
+}
+function isCable(label){return /\bCABLE(?:[- ]?[A-Z])?\s+Input\b|VB-Audio Virtual Cable/i.test(label||'');}
+function cableOption(){
+  const options=[...$('outputDevice').options].filter(o=>o.value&&o.value!=='__none__'&&isCable(o.textContent));
+  return options.length===1?options[0]:null;
+}
+function chip(text,kind=''){
+  $('connectionChip').textContent=text;
+  $('connectionChip').className='connection-chip'+(kind?' '+kind:'');
+}
+function route(title,info){$('routeText').textContent=title;$('routeInfo').textContent=info;}
+function restorePrefs(){
+  if(PRESETS[prefs.voice])changeVoice(prefs.voice);
+  if(Number.isFinite(prefs.pitch)&&prefs.pitch>=-9&&prefs.pitch<=9){
+    $('pitch').value=String(prefs.pitch);
+    $('pitchValue').textContent=(prefs.pitch>0?'+':'')+prefs.pitch;
+  }
+  if(Number.isFinite(prefs.volume)&&prefs.volume>=0&&prefs.volume<=120){
+    $('volume').value=String(prefs.volume);
+    $('volumeValue').textContent=prefs.volume+' %';
+  }
+  $('discordReady').checked=!!prefs.discordReady;
+  savePrefs();
+}
 
 function status(text,kind=''){
   $('status').textContent=text;
@@ -174,21 +252,24 @@ class DDPitchShift extends AudioWorkletProcessor {
 registerProcessor('dd-pitch',DDPitchShift);`;
 
 async function enumerateDevices(){
-  if(!navigator.mediaDevices||!navigator.mediaDevices.enumerateDevices)return;
+  if(!navigator.mediaDevices?.enumerateDevices)return;
   const all=await navigator.mediaDevices.enumerateDevices();
   const input=$('inputDevice'),output=$('outputDevice');
-  const oldInput=input.value,oldOutput=output.value;
+  const oldInput=input.value||prefs.inputDevice||'';
+  const oldOutput=output.value;
   input.replaceChildren(new Option('Standardmikrofon',''));
-  output.replaceChildren(new Option('Keine Ausgabe (sicherer Start)','__none__'));
+  output.replaceChildren(new Option('Keine Ausgabe','__none__'));
   let m=0,s=0;
   for(const d of all){
     if(d.kind==='audioinput')input.add(new Option(d.label||'Mikrofon '+(++m),d.deviceId));
     if(d.kind==='audiooutput')output.add(new Option(d.label||'Audioausgabe '+(++s),d.deviceId));
   }
   if([...input.options].some(o=>o.value===oldInput))input.value=oldInput;
-  if([...output.options].some(o=>o.value===oldOutput))output.value=oldOutput;
-  else if([...output.options].some(o=>o.value===deviceOutput))output.value=deviceOutput;
-  if(![...output.options].some(o=>o.value===deviceOutput))deviceOutput='__none__';
+  if([...output.options].some(o=>o.value===oldOutput)&&oldOutput!=='__none__')output.value=oldOutput;
+  else if(cableOption())output.value=cableOption().value;
+  else output.value='__none__';
+  deviceOutput=output.value;
+  return all;
 }
 function makeCurve(drive){
   const n=1024,k=Number(drive)*17,a=new Float32Array(n);
@@ -205,6 +286,7 @@ function changeVoice(next){
   $('pitch').value=String(p.pitch);
   $('pitchValue').textContent=(p.pitch>0?'+':'')+p.pitch;
   applyPreset();
+  savePrefs();
 }
 function applyPreset(){
   if(!nodes||!context)return;
@@ -224,18 +306,38 @@ async function applyOutput(){
   if(!stream||!context)return;
   if(deviceOutput==='__none__'){
     audio.pause();
-    status('Mikrofon aktiv, aber die Audioausgabe ist aus. Wähle CABLE Input als Ausgang.');
+    chip('AUSGABE FEHLT','test');
+    route('Mikrofon → Voice Changer','CABLE Input wurde nicht automatisch gefunden.');
+    status('Wähle unter „Geräteauswahl & Hilfe“ CABLE Input. Falls es nicht angeboten wird, klicke auf „Ausgabegerät freigeben“.','error');
+    $('advanced').open=true;
     return;
   }
   if(typeof audio.setSinkId!=='function'){
-    audio.pause();status('Dieser Browser kann den Audioausgang nicht auswählen (setSinkId fehlt). Verwende Chrome oder Edge unter Windows.','error');return;
+    audio.pause();
+    chip('NICHT VERBUNDEN','test');
+    status('Der Browser kann den Audioausgang nicht zuordnen. Bitte Chrome oder Edge verwenden.','error');
+    $('advanced').open=true;
+    return;
   }
   try{
     await audio.setSinkId(deviceOutput);
     await audio.play();
     const label=$('outputDevice').selectedOptions[0]?.textContent||'Audioausgabe';
-    status('LIVE — veränderte Stimme wird an „'+label+'“ ausgegeben.\nDiscord muss das zugehörige virtuelle Eingabegerät verwenden.','good');
-  }catch(e){audio.pause();status('Audioausgabe konnte nicht gestartet werden: '+describeError(e),'error');}
+    if(isCable(label)){
+      chip('WEITERLEITUNG AN','live');
+      route('Mikrofon → Effekt → VB-CABLE','Discord-Eingabegerät: CABLE Output');
+      status('Audio wird an '+label+' gesendet. Wenn Discord auf CABLE Output steht, hören dich deine Mitspieler mit Effekt.','good');
+    }else{
+      chip('NUR SELBSTTEST','test');
+      route('Mikrofon → Effekt → '+label,'Dieses Ausgabegerät ist nicht automatisch mit Discord verbunden.');
+      status('Du hörst die Stimme lokal. Für Discord wähle unter „Geräteauswahl & Hilfe“ den Ausgang CABLE Input.');
+    }
+  }catch(e){
+    audio.pause();
+    chip('AUSGABE FEHLER','test');
+    status('Audioausgabe nicht erlaubt: '+describeError(e)+'\nÖffne „Geräteauswahl & Hilfe“ und klicke auf „Ausgabegerät freigeben“.','error');
+    $('advanced').open=true;
+  }
 }
 function measure(){
   if(!nodes||!nodes.analyser){$('level').style.width='0%';return;}
@@ -249,7 +351,7 @@ function measure(){
 }
 async function start(){
   if(starting||stream)return;
-  starting=true;$('start').disabled=true;
+  starting=true;$('start').disabled=true;chip('VERBINDE …');
   try{
     if(!window.isSecureContext||!navigator.mediaDevices?.getUserMedia){
       throw Error('Mikrofon erfordert HTTPS und einen unterstützten Browser.');
@@ -261,6 +363,7 @@ async function start(){
       echoCancellation:false,noiseSuppression:false,autoGainControl:false,channelCount:1
     },video:false});
     await enumerateDevices();
+    if(cableOption()){$('outputDevice').value=cableOption().value;}
     context=new (window.AudioContext||window.webkitAudioContext)({latencyHint:'interactive'});
     await context.resume();
     const src=context.createMediaStreamSource(stream);
@@ -308,6 +411,8 @@ async function stop(showMessage=true){
   outputStream=null;
   cancelAnimationFrame(meterFrame);$('level').style.width='0%';
   $('start').disabled=false;$('stop').disabled=true;
+  chip('AUS');
+  route('Mikrofon → Voice Changer → Discord','VB-CABLE wird beim Start erkannt.');
   if(showMessage)status('Gestoppt. Mikrofon und Audioausgabe sind ausgeschaltet.');
 }
 async function chooseOutput(){
@@ -325,16 +430,27 @@ async function chooseOutput(){
 }
 
 document.querySelectorAll('[data-voice]').forEach(b=>b.addEventListener('click',()=>changeVoice(b.dataset.voice)));
-$('pitch').addEventListener('input',()=>{$('pitchValue').textContent=(Number($('pitch').value)>0?'+':'')+$('pitch').value;applyPreset();});
-$('volume').addEventListener('input',()=>{$('volumeValue').textContent=$('volume').value+' %';applyPreset();});
+$('pitch').addEventListener('input',()=>{$('pitchValue').textContent=(Number($('pitch').value)>0?'+':'')+$('pitch').value;applyPreset();savePrefs();});
+$('volume').addEventListener('input',()=>{$('volumeValue').textContent=$('volume').value+' %';applyPreset();savePrefs();});
+$('discordReady').addEventListener('change',savePrefs);
 $('start').addEventListener('click',start);
 $('stop').addEventListener('click',()=>stop());
 $('outputDevice').addEventListener('change',applyOutput);
 $('chooseOutput').addEventListener('click',chooseOutput);
-$('refreshDevices').addEventListener('click',async()=>{try{await enumerateDevices();status('Geräteliste aktualisiert.');}catch(e){status(describeError(e),'error');}});
-$('inputDevice').addEventListener('change',async()=>{if(stream){await stop(false);await start();}});
-if(navigator.mediaDevices?.addEventListener)navigator.mediaDevices.addEventListener('devicechange',()=>enumerateDevices().catch(()=>{}));
+$('refreshDevices').addEventListener('click',async()=>{
+  try{
+    const wasNone=$('outputDevice').value==='__none__';
+    await enumerateDevices();
+    if(stream&&wasNone&&cableOption()){$('outputDevice').value=cableOption().value;await applyOutput();}
+    else if(!stream)status('Geräteliste aktualisiert. Du kannst jetzt starten.');
+  }catch(e){status(describeError(e),'error');}
+});
+$('inputDevice').addEventListener('change',async()=>{savePrefs();if(stream){await stop(false);await start();}});
+if(navigator.mediaDevices?.addEventListener)navigator.mediaDevices.addEventListener('devicechange',async()=>{
+  try{const wasNone=$('outputDevice').value==='__none__';await enumerateDevices();if(stream&&wasNone&&cableOption()){$('outputDevice').value=cableOption().value;await applyOutput();}}catch(_){}
+});
 window.addEventListener('pagehide',()=>{if(stream)stream.getTracks().forEach(t=>t.stop());});
+restorePrefs();
 enumerateDevices().catch(()=>{});
 </script>
 </body>
