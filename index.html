@@ -113,6 +113,17 @@ summary span{color:#839bb4}
 .ai-state{margin-top:11px;color:#b6cce0;font-size:11px;white-space:pre-wrap;overflow-wrap:anywhere}
 .ai-state.error{color:#ffc0c0}
 .ai-disclaimer{font-size:10px!important;color:#8ea4bf!important;margin:9px 0 0!important}
+
+/* Live-KI: Mikrofon -> Erkennung -> deutsche Piper-Stimme */
+.ai-live{margin-top:14px;padding:12px;border:1px solid #465f77;background:#10243a;border-radius:9px}
+.ai-live strong{font-size:12px;color:#ecdecb}
+.ai-live .help{margin:5px 0 10px}
+.ai-live-buttons{display:flex;flex-wrap:wrap;gap:7px}
+.ai-live-buttons .btn{flex:1;min-width:135px}
+.ai-live-state{padding:10px 0 5px;font-size:11px;color:#a7cbd6;white-space:pre-wrap;overflow-wrap:anywhere}
+.ai-live-state.error{color:#ffb6bc}
+.ai-live-transcript{font-size:11px;line-height:1.55;color:#d3dfed;white-space:pre-wrap;overflow-wrap:anywhere;background:#0a192b;border:1px solid #29415b;border-radius:7px;padding:10px;margin-top:7px;max-height:130px;overflow-y:auto}
+.ai-live-warning{margin:10px 0 0!important;font-size:10px!important;color:#a6b5c8!important}
 .voice-library-head{display:flex;justify-content:space-between;align-items:center;gap:8px;margin:0 0 9px}
 .voice-library-head h2{margin:0}
 .library-count{font-size:10px;color:#97abc2;font-weight:750}
@@ -163,6 +174,17 @@ summary span{color:#839bb4}
             <button id="aiPlay" class="btn" type="button" disabled>▶ Abspielen</button>
           </div>
           <div id="aiState" class="ai-state" role="status" aria-live="polite">Modell wird beim Öffnen geladen.</div>
+          <div class="ai-live">
+            <strong>LIVE-KI · DIREKT INS MIKROFON SPRECHEN</strong>
+            <p class="help">Deutsch sprechen → automatisch erkennen → mit der ausgewählten KI-Frauenstimme über den gewählten Audioausgang wiedergeben. Die Ausgabe erfolgt nach jedem erkannten Satz.</p>
+            <div class="ai-live-buttons">
+              <button id="aiLiveStart" class="btn primary" type="button">Mikrofon → KI starten</button>
+              <button id="aiLiveStop" class="btn danger" type="button" disabled>Live-KI stoppen</button>
+            </div>
+            <div id="aiLiveState" class="ai-live-state" role="status" aria-live="polite">Bereit. Zuerst die deutsche Stimme und CABLE Input als Audioausgabe wählen.</div>
+            <div id="aiLiveTranscript" class="ai-live-transcript">Erkannter Text erscheint hier.</div>
+            <p class="ai-live-warning">Für Discord: CABLE Input im Voice Changer und CABLE Output in Discord. Die Spracherkennung verwendet das Windows-Standardmikrofon und kann Audio an einen Erkennungsdienst des Browseranbieters senden. Die KI-Spracherzeugung läuft lokal. Kopfhörer empfohlen, damit die KI sich nicht selbst aufnimmt.</p>
+          </div>
           <p class="ai-disclaimer">Schnelleres, kompaktes Modell für Deutsch. Beim ersten Aufruf werden Modell und Laufzeitdateien geladen und anschließend lokal zwischengespeichert. Weitere Sätze benötigen keinen erneuten Modell-Download. Nur Text-zu-Sprache, keine Live-Mikrofonumwandlung. Für Discord CABLE Input als Audioausgabe einstellen.</p>
         </div>
       </details>
@@ -500,6 +522,7 @@ function measure(){
   meterFrame=requestAnimationFrame(measure);
 }
 async function start(){
+  if(liveWanted)liveStop();
   if(starting||stream)return;
   starting=true;$('start').disabled=true;chip('VERBINDE …');
   try{
@@ -733,6 +756,239 @@ async function aiPlay(){
       'Deutsche KI-Stimme spielt lokal. Für Discord CABLE Input unter „Geräteauswahl & Hilfe“ wählen.');
   }catch(e){aiState('Abspielen fehlgeschlagen: '+(e&&e.message||String(e)),true);}
 }
+/* LIVE-KI: Browser-Spracherkennung (de-DE), Piper-Sprachausgabe.
+   Die Spracherkennung kann vom Browseranbieter serverbasiert erfolgen. */
+const LiveRecognition=window.SpeechRecognition||window.webkitSpeechRecognition;
+let liveWanted=false,liveRecognizer=null,liveRecognizerActive=false;
+let liveRetryTimer=null,liveEpoch=0,liveProcessing=false;
+let liveQueue=[],liveHistory=[],liveHandledFinal=new Set(),livePlaybackFinish=null;
+function liveState(text,isError=false){
+  $('aiLiveState').textContent=text;
+  $('aiLiveState').className='ai-live-state'+(isError?' error':'');
+}
+function liveTranscript(interim=''){
+  const items=liveHistory.slice(-5);
+  if(interim)items.push('… '+interim);
+  $('aiLiveTranscript').textContent=items.join('\n')||'Sprich jetzt einen deutschen Satz.';
+}
+function liveSplit(text,maxLen=180){
+  const parts=[];
+  let rest=text.replace(/\s+/g,' ').trim();
+  while(rest.length>maxLen){
+    let cut=rest.lastIndexOf(' ',maxLen);
+    if(cut<maxLen/2)cut=maxLen;
+    parts.push(rest.slice(0,cut).trim());
+    rest=rest.slice(cut).trim();
+  }
+  if(rest)parts.push(rest);
+  return parts;
+}
+function liveSubmit(text){
+  if(!liveWanted)return;
+  const clean=text.replace(/\s+/g,' ').trim();
+  if(!clean)return;
+  liveHistory.push(clean);
+  if(liveHistory.length>25)liveHistory.shift();
+  liveTranscript();
+  for(const part of liveSplit(clean)){
+    if(liveQueue.length>=8){
+      liveState('KI ist ausgelastet. Ältester wartender Satz wird verworfen.',true);
+      liveQueue.shift();
+    }
+    liveQueue.push(part);
+  }
+  liveProcessQueue(liveEpoch);
+}
+function liveStartRecognition(){
+  if(!liveWanted||!liveRecognizer)return;
+  try{
+    liveHandledFinal.clear();
+    liveRecognizer.start();
+  }catch(e){
+    if(e?.name==='InvalidStateError')return;
+    liveState('Spracherkennung konnte nicht starten: '+(e?.message||String(e)),true);
+    liveStop(false);
+  }
+}
+function liveStart(){
+  if(liveWanted)return;
+  if(!LiveRecognition){
+    liveState('Dieser Browser unterstützt keine Web-Speech-Spracherkennung. Bitte aktuelles Chrome oder Edge verwenden.',true);
+    return;
+  }
+  if(aiBusy||liveProcessing){
+    liveState('Eine KI-Generierung läuft noch. Starte den Live-Modus anschließend.',true);
+    return;
+  }
+  if(stream)stop(false).catch(()=>{});
+  $('aiAudio').pause();
+  liveWanted=true;
+  liveEpoch++;
+  liveHistory=[];
+  liveQueue=[];
+  liveHandledFinal.clear();
+  liveTranscript();
+  $('aiLiveStart').disabled=true;
+  $('aiLiveStop').disabled=false;
+  $('aiGenerate').disabled=true;
+  $('aiPlay').disabled=true;
+  $('aiVoice').disabled=true;
+  const rec=new LiveRecognition();
+  liveRecognizer=rec;
+  rec.lang='de-DE';
+  rec.continuous=true;
+  rec.interimResults=true;
+  rec.maxAlternatives=1;
+  rec.onstart=()=>{
+    liveRecognizerActive=true;
+    if(liveWanted){
+      liveState('Mikrofon hört zu · Deutsch sprechen. KI-Stimme: '+$('aiVoice').selectedOptions[0].textContent);
+      enumerateDevices().catch(()=>{});
+    }
+  };
+  rec.onresult=event=>{
+    if(!liveWanted)return;
+    let interim='';
+    for(let i=event.resultIndex;i<event.results.length;i++){
+      const result=event.results[i];
+      const transcript=result?.[0]?.transcript?.trim()||'';
+      if(result.isFinal){
+        if(!liveHandledFinal.has(i)&&transcript){
+          liveHandledFinal.add(i);
+          liveSubmit(transcript);
+        }
+      }else if(transcript){
+        interim+=transcript+' ';
+      }
+    }
+    liveTranscript(interim.trim());
+  };
+  rec.onerror=event=>{
+    if(!liveWanted)return;
+    const reason=event.error||'unbekannt';
+    if(reason==='no-speech'||reason==='aborted')return;
+    const fatal=['not-allowed','service-not-allowed','audio-capture','language-not-supported'].includes(reason);
+    if(fatal){
+      liveStop(false);
+      liveState('Mikrofon-/Spracherkennungsfehler: '+reason+'. Prüfe Browserfreigabe und Standardmikrofon.',true);
+    }else{
+      liveState('Spracherkennung: '+reason+'. '+(reason==='network'?'Prüfe die Verbindung zum Erkennungsdienst.':'Neustart wird versucht.'),true);
+      if(reason==='network')liveStop(false);
+    }
+  };
+  rec.onend=()=>{
+    liveRecognizerActive=false;
+    if(liveWanted){
+      liveState('Spracherkennung wird wieder aktiviert …');
+      if(liveRetryTimer)clearTimeout(liveRetryTimer);
+      liveRetryTimer=setTimeout(()=>{
+        liveRetryTimer=null;
+        liveStartRecognition();
+      },450);
+    }
+  };
+  liveState('Mikrofon-Freigabe wird angefordert …');
+  /* Muss direkt aus der Klickaktion erfolgen: keine await-Anweisung davor. */
+  liveStartRecognition();
+  aiPrepare($('aiVoice').value).catch(e=>{
+    if(liveWanted)liveState('KI-Modell lädt noch nicht: '+(e?.message||String(e)),true);
+  });
+}
+function liveStop(showMessage=true){
+  liveWanted=false;
+  liveEpoch++;
+  liveQueue.length=0;
+  if(liveRetryTimer){clearTimeout(liveRetryTimer);liveRetryTimer=null;}
+  if(liveRecognizer){
+    const rec=liveRecognizer;
+    liveRecognizer=null;
+    rec.onend=null;
+    rec.onresult=null;
+    try{rec.abort();}catch(_){}
+  }
+  liveRecognizerActive=false;
+  if(livePlaybackFinish)livePlaybackFinish();
+  $('aiAudio').pause();
+  $('aiLiveStart').disabled=false;
+  $('aiLiveStop').disabled=true;
+  $('aiVoice').disabled=false;
+  $('aiGenerate').disabled=false;
+  $('aiPlay').disabled=!aiUrl;
+  if(showMessage)liveState('Live-KI gestoppt. Mikrofon ist aus.');
+}
+function livePlayBlob(blob,epoch){
+  if(!liveWanted||epoch!==liveEpoch)return Promise.resolve();
+  const audio=$('aiAudio');
+  const url=URL.createObjectURL(blob);
+  return new Promise((resolve,reject)=>{
+    let done=false;
+    const complete=error=>{
+      if(done)return;
+      done=true;
+      audio.removeEventListener('ended',onEnd);
+      audio.removeEventListener('error',onError);
+      if(livePlaybackFinish===cancel)livePlaybackFinish=null;
+      URL.revokeObjectURL(url);
+      error?reject(error):resolve();
+    };
+    const onEnd=()=>complete();
+    const onError=()=>complete(Error('KI-Audio konnte nicht abgespielt werden.'));
+    const cancel=()=>{audio.pause();complete();};
+    livePlaybackFinish=cancel;
+    audio.pause();
+    audio.src=url;
+    audio.addEventListener('ended',onEnd);
+    audio.addEventListener('error',onError);
+    (async()=>{
+      const device=$('outputDevice').value;
+      if(device!=='__none__'){
+        if(typeof audio.setSinkId!=='function')
+          throw Error('Audioausgabe nicht wählbar: Chrome/Edge erforderlich.');
+        await audio.setSinkId(device);
+      }
+      if(!liveWanted||epoch!==liveEpoch){cancel();return;}
+      await audio.play();
+    })().catch(complete);
+  });
+}
+async function liveProcessQueue(epoch){
+  if(liveProcessing)return;
+  liveProcessing=true;
+  try{
+    while(liveWanted&&epoch===liveEpoch&&liveQueue.length){
+      const spoken=liveQueue.shift();
+      liveState('KI verarbeitet: „'+spoken+'“'+(liveQueue.length?' · '+liveQueue.length+' Sätze warten':''));
+      try{
+        const session=await aiPrepare($('aiVoice').value);
+        const blob=await session.predict(spoken);
+        if(!liveWanted||epoch!==liveEpoch)break;
+        if(!(blob instanceof Blob)||!blob.size)throw Error('Keine Audiodaten erzeugt.');
+        const label=$('outputDevice').selectedOptions[0]?.textContent||'';
+        if($('outputDevice').value==='__none__'){
+          liveState('KI-Stimme wird lokal ausgegeben. Für Discord CABLE Input unter „Geräteauswahl & Hilfe“ einstellen.',true);
+        }else if(isCable(label)){
+          liveState('KI spricht über VB-CABLE · Discord-Eingang CABLE Output');
+        }else{
+          liveState('KI spricht über '+label+' · für Discord stattdessen CABLE Input wählen.');
+        }
+        await livePlayBlob(blob,epoch);
+      }catch(e){
+        console.error('Live-KI',e);
+        liveState('Live-KI konnte diesen Satz nicht sprechen: '+(e?.message||String(e)),true);
+      }
+    }
+  }finally{
+    liveProcessing=false;
+    if(liveWanted&&liveQueue.length){
+      queueMicrotask(()=>liveProcessQueue(liveEpoch));
+    }else if(liveWanted){
+      liveState('Bereit · Deutsch sprechen. Die KI antwortet nach jedem erkannten Satz.');
+    }
+  }
+}
+$('aiLiveStart').addEventListener('click',liveStart);
+$('aiLiveStop').addEventListener('click',()=>liveStop());
+
 $('aiGenerate').addEventListener('click',aiGenerate);
 $('aiPlay').addEventListener('click',aiPlay);
 $('aiTest').addEventListener('toggle',()=>{
@@ -786,7 +1042,7 @@ $('inputDevice').addEventListener('change',async()=>{savePrefs();if(stream){awai
 if(navigator.mediaDevices?.addEventListener)navigator.mediaDevices.addEventListener('devicechange',async()=>{
   try{const wasNone=$('outputDevice').value==='__none__';await enumerateDevices();if(stream&&wasNone&&cableOption()){$('outputDevice').value=cableOption().value;await applyOutput();}}catch(_){}
 });
-window.addEventListener('pagehide',()=>{if(stream)stream.getTracks().forEach(t=>t.stop());});
+window.addEventListener('pagehide',()=>{liveStop(false);if(stream)stream.getTracks().forEach(t=>t.stop());});
 restorePrefs();
 enumerateDevices().catch(()=>{});
 </script>
