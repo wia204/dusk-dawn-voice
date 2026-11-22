@@ -605,6 +605,46 @@ async function chooseOutput(){
 }
 
 
+/* Piper-Kompatibilität für ältere deutsche 130-Symbol-Modelle.
+   Der ältere Phonemizer gibt beim ich-Laut einen kombinierenden Cedilla-
+   Code 140 aus; deutsche Piper-ONNX-Modelle besitzen nur IDs 0–129.
+   Dieser gezielte Patch wandelt ausschließlich 140 in das im Modell
+   vorhandene ç-Phonem 40 um. Andere ungültige IDs werden gemeldet. */
+let aiGermanPhonemesPatched=false;
+async function aiInstallGermanPhonemeFix(){
+  if(aiGermanPhonemesPatched)return;
+  const ort=await import('onnxruntime-web');
+  const proto=ort.InferenceSession?.prototype;
+  if(!proto||typeof proto.run!=='function'||typeof ort.Tensor!=='function'){
+    throw Error('ONNX Runtime kann nicht für deutsche Phoneme angepasst werden.');
+  }
+  const originalRun=proto.run;
+  proto.run=function(feeds,...otherArgs){
+    const input=feeds?.input;
+    const data=input?.data;
+    if(!data||!input?.dims||!ArrayBuffer.isView(data)){
+      return originalRun.call(this,feeds,...otherArgs);
+    }
+    let cleaned=null;
+    for(let i=0;i<data.length;i++){
+      const value=Number(data[i]);
+      if(value===140){
+        if(!cleaned)cleaned=data.slice();
+        cleaned[i]=typeof cleaned[i]==='bigint'?40n:40;
+      }else if(value<0||value>=130){
+        throw Error('Unbekanntes Phonem '+value+
+          ' (deutsches Modell erlaubt nur 0–129).');
+      }
+    }
+    if(cleaned){
+      const corrected=new ort.Tensor('int64',cleaned,input.dims);
+      return originalRun.call(this,{...feeds,input:corrected},...otherArgs);
+    }
+    return originalRun.call(this,feeds,...otherArgs);
+  };
+  aiGermanPhonemesPatched=true;
+}
+
 /* PIPER TTS: deutsche Frauenstimmen, Modell-Session im Speicher behalten. */
 const AI_PIPER_MODULE='https://cdn.jsdelivr.net/npm/@mintplex-labs/piper-tts-web@1.0.3/dist/piper-tts-web.js';
 let aiPiper=null,aiSession=null,aiSessionVoice='',aiLoading=null;
@@ -629,6 +669,7 @@ async function aiPrepare(id){
   }
   aiLoading=(async()=>{
     const piper=await aiGetLibrary();
+    await aiInstallGermanPhonemeFix();
     aiState('Lade deutsche KI-Stimme '+$('aiVoice').selectedOptions[0].textContent+' …');
     /* Originalbibliothek benutzt einen Singleton: bei Sprecherwechsel neu initialisieren. */
     piper.TtsSession._instance=null;
