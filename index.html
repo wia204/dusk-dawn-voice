@@ -77,6 +77,17 @@ hr{border:0;border-top:1px solid #2b3e55;margin:18px 0}
 .discord-once strong{font-size:12px}
 .discord-once p{margin:4px 0 9px;color:#a7bad0;font-size:11px}
 .discord-once b{color:#f0cc8e}
+/* Übersicht: korrekte Zuordnung zwischen Browser, VB-CABLE und Discord */
+.device-guide{margin-top:12px;border:1px solid #354963;border-radius:9px;overflow:hidden;background:#0d1b2c}
+.device-guide-head,.device-guide-row{display:grid;grid-template-columns:minmax(0,43%) minmax(0,57%);align-items:start;gap:10px;padding:9px 11px}
+.device-guide-head{background:#1d2c42;color:#c3d6e9;font-size:9px;font-weight:850;letter-spacing:.065em}
+.device-guide-row{border-top:1px solid #2a3d53;font-size:10px;line-height:1.48}
+.device-guide-row>span:first-child{color:#b7c7d9}
+.device-guide-row>span:last-child{color:#e2eaf4;font-weight:750;overflow-wrap:anywhere}
+.device-guide-row .cable{color:#f2cd8e}
+.device-guide-note{margin:9px 1px 0!important;font-size:10px!important;color:#9eb3ca!important}
+.device-guide-note strong{color:#e4d2b5}
+
 .check-row{display:flex;gap:8px;align-items:center;font-size:11px;color:#bed0e2;letter-spacing:0;font-weight:600;cursor:pointer}
 .check-row input{accent-color:#d4ab70}
 details{border-top:1px solid #304359;margin-top:16px;padding-top:13px}
@@ -141,6 +152,14 @@ summary span{color:#839bb4}
         <div><strong>Einmalig in Discord:</strong><p>Einstellungen → Sprache &amp; Video → Eingabegerät: <b>CABLE Output</b></p></div>
         <label class="check-row"><input id="discordReady" type="checkbox"> Habe ich in Discord eingestellt</label>
       </div>
+      <div class="device-guide" aria-label="Beispiel zur Einrichtung der Audiogeräte für Discord">
+        <div class="device-guide-head"><span>EINSTELLUNG</span><span>RICHTIGE AUSWAHL</span></div>
+        <div class="device-guide-row"><span>Voice Changer → Mikrofon</span><span id="guideMic">Dein Mikrofon / Headset<br><small>z. B. JBL Quantum 400 Chat</small></span></div>
+        <div class="device-guide-row"><span>Voice Changer → Audioausgabe</span><span class="cable">CABLE Input<br><small>(VB-Audio Virtual Cable)</small></span></div>
+        <div class="device-guide-row"><span>Discord → Eingabegerät</span><span class="cable">CABLE Output<br><small>(VB-Audio Virtual Cable)</small></span></div>
+        <div class="device-guide-row"><span>Discord → Ausgabegerät</span><span>Deine Kopfhörer / dein Headset<br><small>z. B. JBL Quantum 400</small></span></div>
+      </div>
+      <p class="device-guide-note"><strong>Merke:</strong> Im Voice Changer <b>CABLE Input</b>, in Discord <b>CABLE Output</b>. Die Headset-Namen sind nur Beispiele.</p>
       <div class="driver-download">
         <span class="driver-label">VB-CABLE · WINDOWS-TREIBER</span>
         <a class="btn" href="https://download.vb-audio.com/Download_CABLE/VBCABLE_Driver_Pack45.zip" target="_blank" rel="noopener noreferrer">VB-CABLE direkt herunterladen ↓</a>
@@ -279,6 +298,12 @@ async function enumerateDevices(){
   else if(cableOption())output.value=cableOption().value;
   else output.value='__none__';
   deviceOutput=output.value;
+  const selectedMic=input.selectedOptions[0];
+  if(selectedMic && selectedMic.value && selectedMic.textContent.trim()){
+    $('guideMic').textContent=selectedMic.textContent.trim();
+  }else{
+    $('guideMic').innerHTML='Dein Mikrofon / Headset<small style="display:block">z. B. JBL Quantum 400 Chat</small>';
+  }
   return all;
 }
 function makeCurve(drive){
