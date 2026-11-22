@@ -176,7 +176,7 @@ summary span{color:#839bb4}
           <div id="aiState" class="ai-state" role="status" aria-live="polite">Modell wird beim Öffnen geladen.</div>
           <div class="ai-live">
             <strong>LIVE-KI · DIREKT INS MIKROFON SPRECHEN</strong>
-            <p class="help">Deutsch sprechen → automatisch erkennen → mit der ausgewählten KI-Frauenstimme über den gewählten Audioausgang wiedergeben. Die Ausgabe erfolgt nach jedem erkannten Satz.</p>
+            <p class="help">Deutsch sprechen → automatisch erkennen → mit der ausgewählten KI-Frauenstimme über den gewählten Audioausgang wiedergeben. Die Ausgabe erfolgt nach jedem erkannten Satz über denselben Ausgang wie die Live-Effekte.</p>
             <div class="ai-live-buttons">
               <button id="aiLiveStart" class="btn primary" type="button">Mikrofon → KI starten</button>
               <button id="aiLiveStop" class="btn danger" type="button" disabled>Live-KI stoppen</button>
@@ -185,7 +185,7 @@ summary span{color:#839bb4}
             <div id="aiLiveTranscript" class="ai-live-transcript">Erkannter Text erscheint hier.</div>
             <p class="ai-live-warning">Für Discord: CABLE Input im Voice Changer und CABLE Output in Discord. Die Spracherkennung verwendet das Windows-Standardmikrofon und kann Audio an einen Erkennungsdienst des Browseranbieters senden. Die KI-Spracherzeugung läuft lokal. Kopfhörer empfohlen, damit die KI sich nicht selbst aufnimmt.</p>
           </div>
-          <p class="ai-disclaimer">Schnelleres, kompaktes Modell für Deutsch. Beim ersten Aufruf werden Modell und Laufzeitdateien geladen und anschließend lokal zwischengespeichert. Weitere Sätze benötigen keinen erneuten Modell-Download. Nur Text-zu-Sprache, keine Live-Mikrofonumwandlung. Für Discord CABLE Input als Audioausgabe einstellen.</p>
+          <p class="ai-disclaimer">Schnelleres, kompaktes Modell für Deutsch. Beim ersten Aufruf werden Modell und Laufzeitdateien geladen und anschließend lokal zwischengespeichert. Weitere Sätze benötigen keinen erneuten Modell-Download. Nur Text-zu-Sprache, keine Live-Mikrofonumwandlung. Für Discord CABLE Input als Audioausgabe einstellen; die KI verwendet dieselbe Audio-Weiterleitung wie die Live-Effekte.</p>
         </div>
       </details>
       <hr>
@@ -253,7 +253,6 @@ summary span{color:#839bb4}
 {"imports":{"onnxruntime-web":"https://cdn.jsdelivr.net/npm/onnxruntime-web@1.18.0/dist/esm/ort.min.js"}}
 </script>
 <audio id="out" autoplay playsinline style="display:none"></audio>
-<audio id="aiAudio" preload="none" style="display:none"></audio>
 <script>
 'use strict';
 const $ = id => document.getElementById(id);
@@ -475,40 +474,43 @@ function applyPreset(){
 async function applyOutput(){
   deviceOutput=$('outputDevice').value;
   const audio=$('out');
-  if(!stream||!context)return;
+  if(!outputStream)return false;
   if(deviceOutput==='__none__'){
     audio.pause();
     chip('AUSGABE FEHLT','test');
     route('Mikrofon → Voice Changer','CABLE Input wurde nicht automatisch gefunden.');
     status('Wähle unter „Geräteauswahl & Hilfe“ CABLE Input. Falls es nicht angeboten wird, klicke auf „Ausgabegerät freigeben“.','error');
     $('advanced').open=true;
-    return;
+    return false;
   }
   if(typeof audio.setSinkId!=='function'){
     audio.pause();
     chip('NICHT VERBUNDEN','test');
     status('Der Browser kann den Audioausgang nicht zuordnen. Bitte Chrome oder Edge verwenden.','error');
     $('advanced').open=true;
-    return;
+    return false;
   }
   try{
     await audio.setSinkId(deviceOutput);
     await audio.play();
     const label=$('outputDevice').selectedOptions[0]?.textContent||'Audioausgabe';
+    const source=stream?'Mikrofon → Effekt':'KI-Stimme';
     if(isCable(label)){
       chip('WEITERLEITUNG AN','live');
-      route('Mikrofon → Effekt → VB-CABLE','Discord-Eingabegerät: CABLE Output');
-      status('Audio wird an '+label+' gesendet. Wenn Discord auf CABLE Output steht, hören dich deine Mitspieler mit Effekt.','good');
+      route(source+' → VB-CABLE','Discord-Eingabegerät: CABLE Output');
+      status('Audio wird an '+label+' gesendet. Discord-Eingabegerät: CABLE Output.','good');
     }else{
       chip('NUR SELBSTTEST','test');
-      route('Mikrofon → Effekt → '+label,'Dieses Ausgabegerät ist nicht automatisch mit Discord verbunden.');
-      status('Du hörst die Stimme lokal. Für Discord wähle unter „Geräteauswahl & Hilfe“ den Ausgang CABLE Input.');
+      route(source+' → '+label,'Dieses Ausgabegerät ist nicht automatisch mit Discord verbunden.');
+      status('Ausgabe nur lokal. Für Discord CABLE Input unter „Geräteauswahl & Hilfe“ wählen.');
     }
+    return true;
   }catch(e){
     audio.pause();
     chip('AUSGABE FEHLER','test');
     status('Audioausgabe nicht erlaubt: '+describeError(e)+'\nÖffne „Geräteauswahl & Hilfe“ und klicke auf „Ausgabegerät freigeben“.','error');
     $('advanced').open=true;
+    return false;
   }
 }
 function measure(){
@@ -537,6 +539,7 @@ async function start(){
     },video:false});
     await enumerateDevices();
     if(cableOption()){$('outputDevice').value=cableOption().value;}
+    await aiCloseBridge();
     context=new (window.AudioContext||window.webkitAudioContext)({latencyHint:'interactive'});
     await context.resume();
     const src=context.createMediaStreamSource(stream);
@@ -671,7 +674,9 @@ async function aiInstallGermanPhonemeFix(){
 /* PIPER TTS: deutsche Frauenstimmen, Modell-Session im Speicher behalten. */
 const AI_PIPER_MODULE='https://cdn.jsdelivr.net/npm/@mintplex-labs/piper-tts-web@1.0.3/dist/piper-tts-web.js';
 let aiPiper=null,aiSession=null,aiSessionVoice='',aiLoading=null;
-let aiUrl=null,aiBusy=false;
+let aiBlob=null,aiBusy=false;
+/* One shared audio output: microphone filters and Piper AI both go through #out. */
+let aiBridge=null,aiPlaybackFinish=null;
 function aiState(message,isError=false){
   $('aiState').textContent=message;
   $('aiState').className='ai-state'+(isError?' error':'');
@@ -724,13 +729,10 @@ async function aiGenerate(){
     aiState('Deutsche KI-Stimme wird erzeugt …');
     const blob=await session.predict(text);
     if(!(blob instanceof Blob)||!blob.size)throw Error('Es wurden keine Audiodaten erzeugt.');
-    $('aiAudio').pause();
-    if(aiUrl)URL.revokeObjectURL(aiUrl);
-    aiUrl=URL.createObjectURL(blob);
-    $('aiAudio').src=aiUrl;
+    aiBlob=blob;
     $('aiPlay').disabled=false;
     const seconds=((performance.now()-begun)/1000).toFixed(1).replace('.',',');
-    aiState('Deutsche KI-Stimme fertig ('+seconds+' s inklusive ggf. Modellladen). Klicke auf „Abspielen“. Für Discord CABLE Input auswählen.');
+    aiState('Deutsche KI-Stimme fertig ('+seconds+' s). „Abspielen“ nutzt denselben VB-CABLE-Ausgang wie die Live-Effekte.');
   }catch(e){
     console.error('Piper Deutsch TTS',e);
     aiState('KI-Test fehlgeschlagen: '+(e&&e.message||String(e))+'\nPrüfe Chrome/Edge, Internet und freien Arbeitsspeicher.',true);
@@ -739,22 +741,97 @@ async function aiGenerate(){
     $('aiGenerate').disabled=false;
   }
 }
+/* AI audio shares the SAME output pipeline as the regular microphone effects:
+   Piper WAV -> AudioBufferSource -> MediaStreamDestination -> #out -> CABLE Input.
+   A separate HTML player is intentionally not used. */
+async function aiSelectOutput(){
+  const select=$('outputDevice');
+  const cableSelected=()=>select.value!=='__none__'&&isCable(select.selectedOptions[0]?.textContent||'');
+  if(cableSelected())return true;
+  await enumerateDevices();
+  if(cableSelected())return true;
+  if(cableOption()){select.value=cableOption().value;return true;}
+  /* Chrome hides device labels before mic permission. Briefly open the default
+     microphone to reveal CABLE Input; stop the permission-probe immediately. */
+  if(navigator.mediaDevices?.getUserMedia){
+    let probe=null;
+    try{probe=await navigator.mediaDevices.getUserMedia({audio:true,video:false});}
+    catch(e){console.warn('Audio-Geräteerkennung:',e);}
+    finally{if(probe)probe.getTracks().forEach(t=>t.stop());}
+    await enumerateDevices();
+    if(cableSelected())return true;
+    if(cableOption()){select.value=cableOption().value;return true;}
+  }
+  if(select.value!=='__none__')return false; // Manually selected speaker = local test only.
+  $('advanced').open=true;
+  throw Error('CABLE Input nicht gefunden. Öffne „Geräteauswahl & Hilfe“, installiere bzw. aktiviere VB-CABLE und wähle CABLE Input als Audioausgabe.');
+}
+async function aiMakeBridge(){
+  /* With the live microphone filter running, use its established Discord bus. */
+  if(stream&&context&&nodes?.destination&&outputStream)
+    return {ctx:context,destination:nodes.destination};
+  if(aiBridge&&aiBridge.ctx.state!=='closed')return aiBridge;
+  const ctx=new (window.AudioContext||window.webkitAudioContext)({latencyHint:'interactive'});
+  await ctx.resume();
+  const destination=ctx.createMediaStreamDestination();
+  aiBridge={ctx,destination};
+  outputStream=destination.stream;
+  $('out').srcObject=outputStream;
+  return aiBridge;
+}
+async function aiCloseBridge(){
+  if(!aiBridge)return;
+  if(aiPlaybackFinish)aiPlaybackFinish();
+  $('out').pause();
+  $('out').srcObject=null;
+  try{await aiBridge.ctx.close();}catch(_){}
+  aiBridge=null;
+  outputStream=null;
+}
+async function aiPlayBlob(blob,epoch=null){
+  if(!(blob instanceof Blob)||!blob.size)throw Error('Keine erzeugten KI-Audiodaten vorhanden.');
+  const cable=await aiSelectOutput();
+  const bus=await aiMakeBridge();
+  await bus.ctx.resume();
+  const connected=await applyOutput();
+  if(!connected)throw Error('Der Audioausgang ist nicht verbunden. Öffne „Geräteauswahl & Hilfe“ und wähle CABLE Input.');
+  const decoded=await bus.ctx.decodeAudioData(await blob.arrayBuffer());
+  if(epoch!==null&&(!liveWanted||epoch!==liveEpoch))return cable;
+  if(aiPlaybackFinish)aiPlaybackFinish();
+  const source=bus.ctx.createBufferSource();
+  source.buffer=decoded;
+  source.connect(bus.destination);
+  await new Promise((resolve,reject)=>{
+    let finished=false;
+    const complete=err=>{
+      if(finished)return;
+      finished=true;
+      source.removeEventListener('ended',onEnd);
+      if(aiPlaybackFinish===cancel)aiPlaybackFinish=null;
+      try{source.disconnect();}catch(_){}
+      err?reject(err):resolve();
+    };
+    const onEnd=()=>complete();
+    const cancel=()=>{try{source.stop();}catch(_){}complete();};
+    aiPlaybackFinish=cancel;
+    source.addEventListener('ended',onEnd);
+    try{source.start();}catch(e){complete(e);}
+  });
+  return cable;
+}
 async function aiPlay(){
-  if(!aiUrl)return;
-  const audio=$('aiAudio');
+  if(!aiBlob)return;
+  $('aiPlay').disabled=true;
   try{
-    const device=$('outputDevice').value;
-    if(device!=='__none__'){
-      if(typeof audio.setSinkId!=='function')throw Error('Audioausgang nicht unterstützt – Chrome oder Edge verwenden.');
-      await audio.setSinkId(device);
-    }
-    audio.currentTime=0;
-    await audio.play();
-    const label=$('outputDevice').selectedOptions[0]?.textContent||'Standardausgabe';
-    aiState(device!=='__none__'&&isCable(label)?
-      'Deutsche KI-Stimme spielt über VB-CABLE. In Discord CABLE Output als Eingabegerät wählen.':
-      'Deutsche KI-Stimme spielt lokal. Für Discord CABLE Input unter „Geräteauswahl & Hilfe“ wählen.');
-  }catch(e){aiState('Abspielen fehlgeschlagen: '+(e&&e.message||String(e)),true);}
+    const cable=await aiPlayBlob(aiBlob);
+    aiState(cable?
+      'KI-Stimme über denselben CABLE Input wie die Live-Effekte ausgegeben. Discord-Eingabegerät: CABLE Output.':
+      'KI-Stimme nur lokal abgespielt. Für Discord CABLE Input als Ausgabe wählen.');
+  }catch(e){
+    aiState('KI-Ausgabe fehlgeschlagen: '+(e?.message||String(e)),true);
+  }finally{
+    if(!liveWanted)$('aiPlay').disabled=!aiBlob;
+  }
 }
 /* LIVE-KI: Browser-Spracherkennung (de-DE), Piper-Sprachausgabe.
    Die Spracherkennung kann vom Browseranbieter serverbasiert erfolgen. */
@@ -821,7 +898,7 @@ function liveStart(){
     return;
   }
   if(stream)stop(false).catch(()=>{});
-  $('aiAudio').pause();
+  if(aiPlaybackFinish)aiPlaybackFinish();
   liveWanted=true;
   liveEpoch++;
   liveHistory=[];
@@ -890,6 +967,7 @@ function liveStart(){
   liveState('Mikrofon-Freigabe wird angefordert …');
   /* Muss direkt aus der Klickaktion erfolgen: keine await-Anweisung davor. */
   liveStartRecognition();
+  aiSelectOutput().catch(e=>{if(liveWanted)liveState('VB-CABLE: '+(e?.message||String(e)),true);});
   aiPrepare($('aiVoice').value).catch(e=>{
     if(liveWanted)liveState('KI-Modell lädt noch nicht: '+(e?.message||String(e)),true);
   });
@@ -908,48 +986,19 @@ function liveStop(showMessage=true){
   }
   liveRecognizerActive=false;
   if(livePlaybackFinish)livePlaybackFinish();
-  $('aiAudio').pause();
+  if(aiPlaybackFinish)aiPlaybackFinish();
   $('aiLiveStart').disabled=false;
   $('aiLiveStop').disabled=true;
   $('aiVoice').disabled=false;
   $('aiGenerate').disabled=false;
-  $('aiPlay').disabled=!aiUrl;
+  $('aiPlay').disabled=!aiBlob;
   if(showMessage)liveState('Live-KI gestoppt. Mikrofon ist aus.');
 }
-function livePlayBlob(blob,epoch){
-  if(!liveWanted||epoch!==liveEpoch)return Promise.resolve();
-  const audio=$('aiAudio');
-  const url=URL.createObjectURL(blob);
-  return new Promise((resolve,reject)=>{
-    let done=false;
-    const complete=error=>{
-      if(done)return;
-      done=true;
-      audio.removeEventListener('ended',onEnd);
-      audio.removeEventListener('error',onError);
-      if(livePlaybackFinish===cancel)livePlaybackFinish=null;
-      URL.revokeObjectURL(url);
-      error?reject(error):resolve();
-    };
-    const onEnd=()=>complete();
-    const onError=()=>complete(Error('KI-Audio konnte nicht abgespielt werden.'));
-    const cancel=()=>{audio.pause();complete();};
-    livePlaybackFinish=cancel;
-    audio.pause();
-    audio.src=url;
-    audio.addEventListener('ended',onEnd);
-    audio.addEventListener('error',onError);
-    (async()=>{
-      const device=$('outputDevice').value;
-      if(device!=='__none__'){
-        if(typeof audio.setSinkId!=='function')
-          throw Error('Audioausgabe nicht wählbar: Chrome/Edge erforderlich.');
-        await audio.setSinkId(device);
-      }
-      if(!liveWanted||epoch!==liveEpoch){cancel();return;}
-      await audio.play();
-    })().catch(complete);
-  });
+async function livePlayBlob(blob,epoch){
+  if(!liveWanted||epoch!==liveEpoch)return;
+  livePlaybackFinish=()=>{if(aiPlaybackFinish)aiPlaybackFinish();};
+  try{await aiPlayBlob(blob,epoch);}
+  finally{livePlaybackFinish=null;}
 }
 async function liveProcessQueue(epoch){
   if(liveProcessing)return;
@@ -965,7 +1014,7 @@ async function liveProcessQueue(epoch){
         if(!(blob instanceof Blob)||!blob.size)throw Error('Keine Audiodaten erzeugt.');
         const label=$('outputDevice').selectedOptions[0]?.textContent||'';
         if($('outputDevice').value==='__none__'){
-          liveState('KI-Stimme wird lokal ausgegeben. Für Discord CABLE Input unter „Geräteauswahl & Hilfe“ einstellen.',true);
+          liveState('KI bereitet CABLE Input vor und wählt den Audioausgang beim Abspielen.',true);
         }else if(isCable(label)){
           liveState('KI spricht über VB-CABLE · Discord-Eingang CABLE Output');
         }else{
