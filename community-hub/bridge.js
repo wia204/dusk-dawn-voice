@@ -3,7 +3,7 @@
 (()=>{
 'use strict';
 const API='https://script.google.com/macros/s/AKfycbwc1xEltV1MS9TEy9P5CWzSAgBu3x908XDBGHA9jUzA_Uvm_id9M_VU3aLrC5rR7kuYEw/exec';
-const API_ENABLED=false; // Switch after backend deployment verified
+const API_ENABLED=false; // WRITE API disabled until verified; GET is background-only
 let count=0;const id=p=>p+Date.now()+'_'+(++count);
 function read(fn,arg){return new Promise((resolve,reject)=>{
  const name=id('ddhub_cb_'),script=document.createElement('script');let finished=false;
@@ -49,7 +49,17 @@ const pictures={
  icon2:'1N4mg49YwdWggHLB-c3i60Vi3U6IH9AYo'
 };
 const functions={
- getHubData:()=>API_ENABLED?read('getHubData').catch(snapshot):snapshot(),
+ getHubData:()=>snapshot().then(data=>{
+   // Render immediately; live sync is non-blocking, with a visible snapshot notice.
+   read('getHubData').then(live=>{
+     if(live&&Array.isArray(live.members)){
+       live.snapshotMode=true; // Preview writes remain blocked until separately validated.
+       live.liveReadOnly=true;
+       window.dispatchEvent(new CustomEvent('ddhub:live-data',{detail:live}));
+     }
+   }).catch(e=>console.warn('Live read unavailable; keeping labeled snapshot',e));
+   return data;
+ }),
  getHubImage:key=>API_ENABLED?read('getHubImage',key):Promise.resolve({
   key,dataUrl:'https://drive.google.com/thumbnail?id='+encodeURIComponent(pictures[key]||'')+'&sz=w'+(key==='banner'?1800:400)
  }),
