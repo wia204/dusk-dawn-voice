@@ -3,6 +3,7 @@
 (()=>{
 'use strict';
 const API='https://script.google.com/macros/s/AKfycbwc1xEltV1MS9TEy9P5CWzSAgBu3x908XDBGHA9jUzA_Uvm_id9M_VU3aLrC5rR7kuYEw/exec';
+const API_ENABLED=false; // Switch after backend deployment verified
 let count=0;const id=p=>p+Date.now()+'_'+(++count);
 function read(fn,arg){return new Promise((resolve,reject)=>{
  const name=id('ddhub_cb_'),script=document.createElement('script');let finished=false;
@@ -31,16 +32,31 @@ function write(fn,args){return new Promise((resolve,reject)=>{
  const timer=setTimeout(()=>finish(Error('Keine Bestätigung vom Backend – bitte die bisherige Web-App verwenden')),25000);
  document.body.appendChild(frame);document.body.appendChild(form);form.submit();
 });}
+const snapshot=async()=>{
+ const r=await fetch('./snapshot.json',{cache:'no-cache'});
+ if(!r.ok)throw Error('GitHub-Vorschau derzeit nicht erreichbar');
+ const data=await r.json();
+ data.loadedAt=data.snapshotAt||data.loadedAt;
+ data.snapshotMode=true;
+ return data;
+};
+const readonly=()=>Promise.reject(Error('GitHub-Vorschau: Bearbeiten vorerst über die bisherige Web-App.'));
+const pictures={
+ banner:'1u0-G-FsdLWK5OGa1HYkKcU8ksRllaHmf',
+ logo:'1eZKis5E2I_Vuor2SEXBtYcEwOqNKgrS4',
+ alt:'1E0eS0L3oBb3ug0sWTtdMqJI6KIuGnKnx',
+ icon1:'1OQD-XxySeZpHuIVTM2M9M6aM5RiwRUkF',
+ icon2:'1N4mg49YwdWggHLB-c3i60Vi3U6IH9AYo'
+};
 const functions={
- getHubData:()=>read('getHubData').catch(async e=>{
-  const r=await fetch('./snapshot.json',{cache:'no-cache'});if(!r.ok)throw e;
-  const d=await r.json();d.loadedAt=d.snapshotAt||d.loadedAt;d.snapshotMode=true;return d;
+ getHubData:()=>API_ENABLED?read('getHubData').catch(snapshot):snapshot(),
+ getHubImage:key=>API_ENABLED?read('getHubImage',key):Promise.resolve({
+  key,dataUrl:'https://drive.google.com/thumbnail?id='+encodeURIComponent(pictures[key]||'')+'&sz=w'+(key==='banner'?1800:400)
  }),
- getHubImage:key=>read('getHubImage',key),
- saveHubStatic:(...args)=>write('saveHubStatic',args),
- saveHubAbsence:(...args)=>write('saveHubAbsence',args),
- deleteHubAbsence:(...args)=>write('deleteHubAbsence',args),
- registerHubVisit:()=>Promise.resolve({total:0,unique:0})
+ saveHubStatic:(...args)=>API_ENABLED?write('saveHubStatic',args):readonly(),
+ saveHubAbsence:(...args)=>API_ENABLED?write('saveHubAbsence',args):readonly(),
+ deleteHubAbsence:(...args)=>API_ENABLED?write('deleteHubAbsence',args):readonly(),
+ registerHubVisit:(...args)=>API_ENABLED?write('registerHubVisit',args):Promise.reject(Error('Besucherstatistik in der Vorschau deaktiviert'))
 };
 function run(onSuccess,onFailure){
  return new Proxy({}, {get(_,key){
