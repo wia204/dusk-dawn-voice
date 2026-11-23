@@ -823,6 +823,7 @@ select:focus-visible,textarea:focus-visible{
 </head>
 
 <body>
+<div id="stagingNotice" role="status" style="padding:9px 18px;text-align:center;background:#342b1e;color:#ffe4b6;font:12px system-ui">GITHUB-VORSCHAU · Aktuelle Sicherungsdaten, noch kein Live-Abgleich. Änderungen vorerst über <a href="https://script.google.com/macros/s/AKfycbwc1xEltV1MS9TEy9P5CWzSAgBu3x908XDBGHA9jUzA_Uvm_id9M_VU3aLrC5rR7kuYEw/exec" target="_blank" rel="noopener noreferrer" style="text-decoration:underline;color:inherit">bisherige Web-App</a>.</div>
 <header class="top">
   <div class="wrap top-inner">
     <a class="brand" href="#" data-nav="overview">
@@ -1140,7 +1141,7 @@ function staticPicker(m) {
   const item=getStatic(m);
   const current=item?item.raid:'';
   const key=staticKey(m);
-  const busy=!!S.staticBusy[key];
+  const busy=!!S.staticBusy[key] || !!S.data?.snapshotMode;
 
   const values=[
     {id:'',label:'Keine Static'}
@@ -2136,6 +2137,7 @@ function drawAbsences() {
 }
 
 function saveAbsence() {
+  if(S.data?.snapshotMode){toast('Vorschau im Lesemodus – bitte die bisherige Web-App benutzen.');return;}
   if(S.absenceSaving)return;
 
   const member=parseAbsenceMember(
@@ -2199,6 +2201,7 @@ function saveAbsence() {
 }
 
 function deleteAbsence(id) {
+  if(S.data?.snapshotMode){toast('Vorschau im Lesemodus – bitte die bisherige Web-App benutzen.');return;}
   const a=(S.data.absences||[])
     .find(x=>x.id===id);
 
@@ -2480,6 +2483,8 @@ function reloadData(silent) {
   google.script.run
     .withSuccessHandler(data=>{
       S.data=data;
+      const notice=document.getElementById('stagingNotice');
+      if(notice)notice.style.display=data.snapshotMode?'block':'none';
       assignRanks(S.data.members);
 
       const inputActive=
