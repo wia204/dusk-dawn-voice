@@ -823,7 +823,7 @@ select:focus-visible,textarea:focus-visible{
 </head>
 
 <body>
-<div id="stagingNotice" role="status" style="padding:9px 18px;text-align:center;background:#342b1e;color:#ffe4b6;font:12px system-ui">GITHUB-VORSCHAU · Aktuelle Sicherungsdaten, noch kein Live-Abgleich. Änderungen vorerst über <a href="https://script.google.com/macros/s/AKfycbwc1xEltV1MS9TEy9P5CWzSAgBu3x908XDBGHA9jUzA_Uvm_id9M_VU3aLrC5rR7kuYEw/exec" target="_blank" rel="noopener noreferrer" style="text-decoration:underline;color:inherit">bisherige Web-App</a>.</div>
+<div id="stagingNotice" role="status" style="padding:9px 18px;text-align:center;background:#342b1e;color:#ffe4b6;font:12px system-ui">GITHUB-VORSCHAU · Daten werden sofort aus dem Stand vom 23.11. angezeigt und danach live abgeglichen. Änderungen weiterhin über <a href="https://script.google.com/macros/s/AKfycbwc1xEltV1MS9TEy9P5CWzSAgBu3x908XDBGHA9jUzA_Uvm_id9M_VU3aLrC5rR7kuYEw/exec" target="_blank" rel="noopener noreferrer" style="text-decoration:underline;color:inherit">bisherige Web-App</a>.</div>
 <header class="top">
   <div class="wrap top-inner">
     <a class="brand" href="#" data-nav="overview">
@@ -2762,6 +2762,19 @@ document.addEventListener('submit',event=>{
 /* =========================================================
    START
    ========================================================= */
+
+window.addEventListener('ddhub:live-data',event=>{
+ const incoming=event.detail;
+ if(!incoming||!Array.isArray(incoming.members))return;
+ S.data=incoming;
+ assignRanks(S.data.members);
+ // Drop all write capabilities until validated; live data will refresh visible content.
+ if(S.tab==='members'||S.tab==='overview')render();
+ const stamp=document.getElementById('lastRead');
+ if(stamp)stamp.textContent='Live-Daten gelesen: '+new Date(incoming.loadedAt).toLocaleString('de-DE');
+ const notice=document.getElementById('stagingNotice');
+ if(notice)notice.textContent='GITHUB-VORSCHAU · Live-Mitglieder gelesen · Änderungen weiterhin über die bisherige Web-App';
+});
 
 loadImage('banner');
 loadImage('logo');
