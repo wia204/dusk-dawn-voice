@@ -1,0 +1,20 @@
+name: Community Hub checks
+on:
+  push:
+    paths:
+      - 'community-hub/**'
+      - '.github/workflows/community-hub-check.yml'
+  pull_request:
+    paths:
+      - 'community-hub/**'
+      - '.github/workflows/community-hub-check.yml'
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate frontend and backend syntax
+        run: node community-hub/tests/smoke.mjs
