@@ -865,7 +865,7 @@ function testWarlokkzIdentity() {
    FRONTEND
    ========================================================= */
 
-const HUB_HTML=String.raw`<!doctype html>
+const HUB_HTML = String.raw`<!doctype html>
 <html lang="de">
 <head>
 <meta charset="utf-8">
@@ -1679,6 +1679,13 @@ select:focus-visible,textarea:focus-visible{
   .static-select{max-width:100%;min-width:170px}
   .pager{padding:12px}
 }
+
+/* GitHub migration v3.4: compact one-line raid picker */
+.member-table th:nth-child(6),.member-table td:nth-child(6){min-width:254px;width:254px}
+.static-value{display:flex!important;flex-direction:row!important;align-items:center;flex-wrap:nowrap!important;gap:7px;min-width:0;width:100%}
+.raid-link{flex:0 0 76px;width:76px;min-width:76px;min-height:32px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border:1px solid #4d617a;border-radius:6px;background:#192c42;color:#bdd6ef;padding:5px;font-size:10px;font-weight:800}
+.static-select{flex:1 1 160px;min-width:105px;max-width:190px;width:160px;min-height:34px}
+@media(max-width:740px){.static-value{max-width:100%}.static-select{flex:1 1 160px;max-width:220px}}
 </style>
 </head>
 
@@ -1804,7 +1811,7 @@ const S={
 };
 
 const $=q=>document.querySelector(q);
-const $$=q=>Array.from(document.querySelectorAll(q));
+const $=q=>Array.from(document.querySelectorAll(q));
 
 const fmt=n=>n==null
   ?'—'
@@ -1960,6 +1967,7 @@ function raidDefs() {
     :[];
 }
 
+function raidShortLabel(id){const n=Number(String(id||'').replace('Raid',''));return Number.isFinite(n)&&n>0?(n<=4?'NM · Raid'+n:'HM · Raid'+(n-4)):String(id||'');}
 function raidLabel(id) {
   const found=raidDefs().find(r=>
     r.id===id
@@ -1998,7 +2006,7 @@ function staticPicker(m) {
   const item=getStatic(m);
   const current=item?item.raid:'';
   const key=staticKey(m);
-  const busy=!!S.staticBusy[key];
+  const busy=!!S.staticBusy[key] || !!S.data?.snapshotMode;
 
   const values=[
     {id:'',label:'Keine Static'}
@@ -2009,7 +2017,7 @@ function staticPicker(m) {
     (current
       ?'<button class="raid-link" '+
        'data-raid-filter="'+esc(current)+'">'+
-       esc(raidLabel(current))+
+       esc(raidShortLabel(current))+
        '</button>'
       :'')+
 
@@ -2122,7 +2130,7 @@ function saveStaticSelect(select) {
    * Nicht ähnlich geschriebene Charaktere.
    */
 
-  $$('[data-static-name]').filter(x=>
+  $('[data-static-name]').filter(x=>
     x.dataset.staticLegion===m.legion&&
     sameCharacter(x.dataset.staticName,m.name)
   ).forEach(x=>{
@@ -2994,6 +3002,7 @@ function drawAbsences() {
 }
 
 function saveAbsence() {
+  if(S.data?.snapshotMode){toast('Vorschau im Lesemodus – bitte die bisherige Web-App benutzen.');return;}
   if(S.absenceSaving)return;
 
   const member=parseAbsenceMember(
@@ -3057,6 +3066,7 @@ function saveAbsence() {
 }
 
 function deleteAbsence(id) {
+  if(S.data?.snapshotMode){toast('Vorschau im Lesemodus – bitte die bisherige Web-App benutzen.');return;}
   const a=(S.data.absences||[])
     .find(x=>x.id===id);
 
@@ -3165,7 +3175,7 @@ async function storeImage(key,dataUrl) {
 
 function applyImages() {
   Object.keys(S.images).forEach(key=>{
-    $$('img[data-asset="'+key+'"]').forEach(img=>{
+    $('img[data-asset="'+key+'"]').forEach(img=>{
       if(img.getAttribute('src')!==S.images[key]){
         img.src=S.images[key];
       }
@@ -3254,7 +3264,7 @@ function loadImage(key) {
 function render() {
   if(!S.data)return;
 
-  $$('[data-nav]').forEach(el=>{
+  $('[data-nav]').forEach(el=>{
     if(el.tagName!=='BUTTON')return;
 
     const active=
@@ -3338,6 +3348,8 @@ function reloadData(silent) {
   google.script.run
     .withSuccessHandler(data=>{
       S.data=data;
+      const notice=document.getElementById('stagingNotice');
+      if(notice)notice.style.display=data.snapshotMode?'block':'none';
       assignRanks(S.data.members);
 
       const inputActive=
